@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect  } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -21,6 +21,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  
 
   const {
     register,
@@ -29,7 +30,6 @@ export default function Login() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
-
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
@@ -73,7 +73,19 @@ export default function Login() {
       setIsLoading(false);
     }
   };
+// Check database connection on component mount
+// useEffect(() => {
+//   const checkDatabase = async () => {
+//     try {
+//       const result = await authApi.checkDb();
+//       console.log("DB check result:", result);
+//     } catch (error) {
+//       console.error("DB check error:", error);
+//     }
+//   };
 
+//   checkDatabase();
+// }, []);
   return (
     <div className="min-h-screen auth-bg relative flex items-center justify-center p-4">
       <div className="auth-blob auth-blob-1" />

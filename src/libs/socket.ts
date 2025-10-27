@@ -9,7 +9,7 @@ class SocketManager {
       return this.socket;
     }
 
-    const socketUrl = url || import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+    const socketUrl = url || (import.meta as any).env?.VITE_SOCKET_URL || 'http://localhost:5000';
     
     this.socket = io(socketUrl, {
       autoConnect: true,

@@ -42,7 +42,7 @@ export const authApi = {
    * Refresh access token
    */
   async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
-    return await apiClient.post<{ accessToken: string }>("/Auth/refresh", {
+    return await apiClient.post<{ accessToken: string }>("/Auth/accessToken", {
       refreshToken,
     });
   },
@@ -86,4 +86,8 @@ export const authApi = {
       passwordReset,
     });
   },
+  async checkDb(): Promise<{ message: string }> {
+    return await apiClient.get<{ message: string }>("/Connection/check-db");
+  }
 };
+

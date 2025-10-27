@@ -5,7 +5,7 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+      baseURL: (import.meta as any).env?.VITE_API_BASE_URL || 'https://localhost:7126/api',
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
@@ -44,7 +44,7 @@ class ApiClient {
           try {
             const refreshToken = localStorage.getItem('refresh_token');
             if (refreshToken) {
-              const response = await this.client.post('/auth/refresh', {
+              const response = await this.client.post('/Auth/accessToken', {
                 refreshToken,
               });
               
