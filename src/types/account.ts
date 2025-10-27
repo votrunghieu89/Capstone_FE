@@ -2,7 +2,7 @@ export interface Account {
   id: string;
   email: string;
   password: string;
-  role: 'Admin' | 'Teacher' | 'Student';
+  role: "Admin" | "Teacher" | "Student";
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -33,12 +33,36 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface LoginResponse {
+  accountId: number;
+  email: string;
+  role: string;
+  accesToken: string; // Note: BE có typo "AccesToken" thay vì "AccessToken"
+  refreshToken: string;
+}
+
+export interface RegisterStudentRequest {
+  fullName: string;
+  email: string;
+  passwordHash: string;
+}
+
+export interface RegisterTeacherRequest {
+  fullName: string;
+  email: string;
+  passwordHash: string;
+  organizationName: string;
+  organizationAddress: string;
+}
+
 export interface RegisterRequest {
   email: string;
   password: string;
-  role: 'Teacher' | 'Student';
+  role: "Teacher" | "Student";
   fullName: string;
   phone?: string;
+  organizationName?: string;
+  organizationAddress?: string;
 }
 
 export interface ForgotPasswordRequest {

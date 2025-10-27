@@ -9,6 +9,7 @@ import { Input } from "../../../components/common/Input";
 import { Spinner } from "../../../components/common/Spinner";
 import { storage } from "../../../libs/storage";
 import { Logo } from "../../../components/common/Logo";
+import { authApi } from "../../../libs/api/authApi";
 
 const loginSchema = z.object({
   email: z.string().email("Email không hợp lệ"),
@@ -32,21 +33,42 @@ export default function Login() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      const mockUser = {
-        id: "u1",
+      // Gọi API login
+      const response = await authApi.login({
         email: data.email,
-        name: "Người dùng",
-        role: "Teacher",
+        password: data.password,
+      });
+
+      // Lưu token và thông tin user
+      storage.setToken(response.accesToken); // Note: BE có typo "accesToken"
+      storage.setRefreshToken(response.refreshToken);
+
+      // Tạo user object từ response
+      const user = {
+        id: response.accountId.toString(),
+        email: response.email,
+        name: response.email.split("@")[0], // Tạm thời lấy từ email
+        role: response.role as "Admin" | "Teacher" | "Student",
         avatar: null,
       };
-      const mockToken = "mock_access_token_" + Date.now();
-      const mockRefreshToken = "mock_refresh_token_" + Date.now();
-      storage.setToken(mockToken);
-      storage.setRefreshToken(mockRefreshToken);
-      storage.setUser(mockUser);
-      // Sau đăng nhập: tạm thời luôn về trang chủ chính (Landing)
-      navigate("/");
+      storage.setUser(user);
+
+      // Điều hướng theo role
+      if (response.role === "Admin") {
+        navigate("/admin");
+      } else if (response.role === "Teacher") {
+        navigate("/teacher");
+      } else if (response.role === "Student") {
+        navigate("/student");
+      } else {
+        navigate("/");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        "Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }

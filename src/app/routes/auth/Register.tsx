@@ -9,6 +9,7 @@ import { Input } from "../../../components/common/Input";
 import { Spinner } from "../../../components/common/Spinner";
 import { storage } from "../../../libs/storage";
 import { Logo } from "../../../components/common/Logo";
+import { authApi } from "../../../libs/api/authApi";
 
 const registerSchema = z
   .object({
@@ -25,7 +26,20 @@ const registerSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Mật khẩu xác nhận không khớp",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) => {
+      // Nếu là Teacher, yêu cầu organizationName và address
+      if (data.role === "Teacher") {
+        return !!data.organizationName && !!data.address;
+      }
+      return true;
+    },
+    {
+      message: "Giáo viên phải nhập tên trường/tổ chức và địa chỉ",
+      path: ["organizationName"],
+    }
+  );
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
@@ -46,20 +60,53 @@ export default function Register() {
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
+    console.log("Form data:", data);
+
     try {
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      const mockUser = {
-        id: "u" + Date.now(),
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        avatar: null,
-      };
-      storage.setToken("mock_token_" + Date.now());
-      storage.setRefreshToken("mock_refresh_" + Date.now());
-      storage.setUser(mockUser);
-      // Sau đăng ký: tạm thời luôn về trang chủ chính (Landing)
-      navigate("/");
+      if (data.role === "Student") {
+        // Đăng ký Student
+        const payload = {
+          fullName: data.name,
+          email: data.email,
+          passwordHash: data.password,
+        };
+        console.log("Sending Student registration:", payload);
+
+        const response = await authApi.registerStudent(payload);
+        console.log("Student registration response:", response);
+
+        alert("Đăng ký học sinh thành công! Vui lòng đăng nhập.");
+        navigate("/auth/login");
+      } else {
+        // Đăng ký Teacher
+        if (!data.organizationName || !data.address) {
+          alert("Giáo viên phải nhập tên trường/tổ chức và địa chỉ");
+          setIsLoading(false);
+          return;
+        }
+
+        const payload = {
+          fullName: data.name,
+          email: data.email,
+          passwordHash: data.password,
+          organizationName: data.organizationName,
+          organizationAddress: data.address,
+        };
+        console.log("Sending Teacher registration:", payload);
+
+        const response = await authApi.registerTeacher(payload);
+        console.log("Teacher registration response:", response);
+
+        alert("Đăng ký giáo viên thành công! Vui lòng đăng nhập.");
+        navigate("/auth/login");
+      }
+    } catch (error: any) {
+      console.error("Register error:", error);
+      console.error("Error response:", error?.response);
+      console.error("Error data:", error?.response?.data);
+      const errorMessage =
+        error?.response?.data?.message || "Đăng ký thất bại. Vui lòng thử lại.";
+      alert(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -157,17 +204,17 @@ export default function Register() {
               {currentRole === "Teacher" && (
                 <>
                   <Input
-                    label="Địa chỉ"
+                    label="Địa chỉ trường/tổ chức *"
                     placeholder="Nhập địa chỉ của Trường/Tổ chức"
                     icon={<MapPin size={16} />}
-                    error={undefined}
+                    error={errors.address?.message}
                     {...register("address")}
                   />
                   <Input
-                    label="Tên trường/tổ chức"
+                    label="Tên trường/tổ chức *"
                     placeholder="Trường THPT ABC"
                     icon={<Building2 size={16} />}
-                    error={undefined}
+                    error={errors.organizationName?.message}
                     {...register("organizationName")}
                   />
                 </>
