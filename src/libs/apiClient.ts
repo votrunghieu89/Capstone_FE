@@ -1,14 +1,14 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: (import.meta as any).env?.VITE_API_BASE_URL || 'https://localhost:7126/api',
+      baseURL: "http://localhost:5119/api", // BE đang chạy HTTP
       timeout: 10000,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -19,7 +19,7 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('access_token');
+        const token = localStorage.getItem("access_token");
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -40,25 +40,25 @@ class ApiClient {
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
+
           try {
-            const refreshToken = localStorage.getItem('refresh_token');
+            const refreshToken = localStorage.getItem("refresh_token");
             if (refreshToken) {
-              const response = await this.client.post('/Auth/accessToken', {
+              const response = await this.client.post("/Auth/accessToken", {
                 refreshToken,
               });
-              
+
               const { accessToken } = response.data;
-              localStorage.setItem('access_token', accessToken);
-              
+              localStorage.setItem("access_token", accessToken);
+
               originalRequest.headers.Authorization = `Bearer ${accessToken}`;
               return this.client(originalRequest);
             }
           } catch (refreshError) {
             // Refresh failed, redirect to login
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            window.location.href = '/auth/login';
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("refresh_token");
+            window.location.href = "/auth/login";
           }
         }
 
@@ -72,17 +72,29 @@ class ApiClient {
     return response.data;
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.post<T>(url, data, config);
     return response.data;
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.put<T>(url, data, config);
     return response.data;
   }
 
-  async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+  async patch<T>(
+    url: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<T> {
     const response = await this.client.patch<T>(url, data, config);
     return response.data;
   }
