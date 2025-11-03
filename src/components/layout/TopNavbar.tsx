@@ -15,17 +15,28 @@ import { Logo } from "../common/Logo";
 
 export const TopNavbar: React.FC = () => {
   const navigate = useNavigate();
-  const user = storage.getUser();
+  const [user, setUser] = useState(storage.getUser());
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Lắng nghe sự kiện cập nhật user
+    const handleUserUpdate = () => {
+      setUser(storage.getUser());
+    };
+
+    window.addEventListener("userUpdated", handleUserUpdate);
+
     const handler = (e: MouseEvent) => {
       if (!ref.current) return;
       if (!ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
+
+    return () => {
+      window.removeEventListener("userUpdated", handleUserUpdate);
+      document.removeEventListener("click", handler);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -65,9 +76,17 @@ export const TopNavbar: React.FC = () => {
                   {user?.email || "guest@example.com"}
                 </p>
               </div>
-              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-primary-600" />
-              </div>
+              {user?.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name || "Avatar"}
+                  className="w-9 h-9 rounded-full object-cover border-2 border-white"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center">
+                  <UserIcon className="w-5 h-5 text-primary-600" />
+                </div>
+              )}
             </button>
             {open && (
               <div className="absolute right-0 top-12 w-56 rounded-lg bg-white shadow-lg border border-secondary-200 p-2 z-50">

@@ -10,6 +10,7 @@ import { Spinner } from "../../../components/common/Spinner";
 import { storage } from "../../../libs/storage";
 import { Logo } from "../../../components/common/Logo";
 import { authApi } from "../../../libs/api/authApi";
+import { profileApi } from "../../../libs/api/profileApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
 
 const loginSchema = z.object({
@@ -40,19 +41,48 @@ export default function Login() {
         password: data.password,
       });
 
-      // Lưu token và thông tin user
+      // Lưu token trước để có thể gọi API profile
       storage.setToken(response.accesToken); // Note: BE có typo "accesToken"
       storage.setRefreshToken(response.refreshToken);
 
-      // Tạo user object từ response
+      // Lấy tên thật và ảnh từ profile dựa trên role
+      let fullName = response.email.split("@")[0]; // Mặc định lấy từ email
+      let avatarURL: string | null = null;
+
+      try {
+        if (response.role === "Student") {
+          const profileResponse = await profileApi.getStudentProfile(
+            response.accountId
+          );
+          fullName = profileResponse.profile.fullName;
+          avatarURL = profileResponse.profile.avatarURL || null;
+        } else if (response.role === "Teacher") {
+          const profileResponse = await profileApi.getTeacherProfile(
+            response.accountId
+          );
+          fullName = profileResponse.profile.fullName;
+          avatarURL = profileResponse.profile.avatarURL || null;
+        }
+      } catch (profileError) {
+        console.warn(
+          "Không lấy được profile, dùng tên từ email:",
+          profileError
+        );
+        // Giữ fullName và avatarURL mặc định
+      }
+
+      // Tạo user object với tên thật và ảnh
       const user = {
         id: response.accountId.toString(),
         email: response.email,
-        name: response.email.split("@")[0], // Tạm thời lấy từ email
+        name: fullName,
         role: response.role as "Admin" | "Teacher" | "Student",
-        avatar: null,
+        avatar: avatarURL,
       };
       storage.setUser(user);
+
+      // Dispatch event để các component khác biết user đã được cập nhật
+      window.dispatchEvent(new Event("userUpdated"));
 
       success("✅ Đăng nhập thành công!");
 

@@ -1,43 +1,51 @@
-import React from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Home, 
-  Users, 
-  History, 
-  LogOut, 
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Home,
+  Users,
+  History,
+  LogOut,
   Settings,
   BookOpen,
-  User
-} from 'lucide-react';
-import { Button } from '../common/Button';
-import { storage } from '../../libs/storage';
+  User,
+} from "lucide-react";
+import { Button } from "../common/Button";
+import { storage } from "../../libs/storage";
 
 export const StudentSidebar: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = storage.getUser();
+  const [user, setUser] = useState(storage.getUser());
+
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      setUser(storage.getUser());
+    };
+    window.addEventListener("userUpdated", handleUserUpdate);
+    return () => window.removeEventListener("userUpdated", handleUserUpdate);
+  }, []);
 
   const menuItems = [
     {
-      name: 'Trang chủ',
-      path: '/student',
+      name: "Trang chủ",
+      path: "/student",
       icon: Home,
     },
     {
-      name: 'Lớp học',
-      path: '/student/classes',
+      name: "Lớp học",
+      path: "/student/classes",
       icon: Users,
     },
     {
-      name: 'Lịch sử',
-      path: '/student/history',
+      name: "Lịch sử",
+      path: "/student/history",
       icon: History,
     },
   ];
 
   const handleLogout = () => {
     storage.clearAuth();
-    navigate('/auth/login');
+    navigate("/auth/login");
   };
 
   return (
@@ -61,12 +69,12 @@ export const StudentSidebar: React.FC = () => {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`sidebar-item ${isActive ? 'active' : ''}`}
+                className={`sidebar-item ${isActive ? "active" : ""}`}
               >
                 <Icon size={20} />
                 <span>{item.name}</span>
@@ -79,26 +87,38 @@ export const StudentSidebar: React.FC = () => {
       {/* User Info & Actions */}
       <div className="p-4 border-t border-secondary-200">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-            <User className="w-5 h-5 text-primary-600" />
-          </div>
+          {user?.avatar ? (
+            <img
+              src={user.avatar}
+              alt={user.name || "Avatar"}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
+              <User className="w-5 h-5 text-primary-600" />
+            </div>
+          )}
           <div className="flex-1">
-            <p className="text-sm font-medium text-secondary-900">{user?.name || 'Học sinh'}</p>
-            <p className="text-xs text-secondary-500">{user?.email || 'student@example.com'}</p>
+            <p className="text-sm font-medium text-secondary-900">
+              {user?.name || "Học sinh"}
+            </p>
+            <p className="text-xs text-secondary-500">
+              {user?.email || "student@example.com"}
+            </p>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <Button
             variant="ghost"
             size="sm"
             className="w-full justify-start"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate("/profile")}
           >
             <Settings className="w-4 h-4 mr-2" />
             Cài đặt
           </Button>
-          
+
           <Button
             variant="ghost"
             size="sm"
