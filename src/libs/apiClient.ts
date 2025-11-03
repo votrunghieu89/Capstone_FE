@@ -43,8 +43,14 @@ class ApiClient {
 
           try {
             const refreshToken = localStorage.getItem("refresh_token");
-            if (refreshToken) {
+            const userStr = localStorage.getItem("user");
+
+            if (refreshToken && userStr) {
+              const user = JSON.parse(userStr);
+              const accountId = parseInt(user.id);
+
               const response = await this.client.post("/Auth/accessToken", {
+                accountId,
                 refreshToken,
               });
 
@@ -58,6 +64,7 @@ class ApiClient {
             // Refresh failed, redirect to login
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
+            localStorage.removeItem("user");
             window.location.href = "/auth/login";
           }
         }

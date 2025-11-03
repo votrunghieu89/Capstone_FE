@@ -86,8 +86,67 @@ export const authApi = {
       passwordReset,
     });
   },
+
+  /**
+   * Change password (requires old password)
+   */
+  async changePassword(
+    email: string,
+    oldPassword: string,
+    newPassword: string
+  ): Promise<{ message: string }> {
+    return await apiClient.post<{ message: string }>("/Auth/changePassword", {
+      email,
+      oldPassword,
+      newPassword,
+    });
+  },
+
+  /**
+   * Logout user
+   */
+  async logout(accountId: number): Promise<{ message: string }> {
+    return await apiClient.post<{ message: string }>(
+      `/Auth/logout/${accountId}`,
+      {}
+    );
+  },
+
+  /**
+   * Get new access token using refresh token
+   */
+  async getNewAccessToken(
+    accountId: number,
+    refreshToken: string
+  ): Promise<{ accessToken: string }> {
+    return await apiClient.post<{ accessToken: string }>("/Auth/accessToken", {
+      accountId,
+      refreshToken,
+    });
+  },
+
+  /**
+   * Google login for student
+   */
+  async googleLoginStudent(idToken: string): Promise<LoginResponse> {
+    return await apiClient.post<LoginResponse>("/Auth/googleLoginStudent", {
+      idToken,
+    });
+  },
+
+  /**
+   * Google login for teacher
+   */
+  async googleLoginTeacher(idToken: string): Promise<LoginResponse> {
+    return await apiClient.post<LoginResponse>("/Auth/googleLoginTeacher", {
+      idToken,
+    });
+  },
+
+  /**
+   * Check database connection
+   */
   async checkDb(): Promise<{ message: string }> {
     return await apiClient.get<{ message: string }>("/Connection/check-db");
-  }
+  },
 };
-
