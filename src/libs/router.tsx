@@ -46,7 +46,7 @@ import Profile from "../app/routes/Profile";
 import CreateQuiz from "../app/routes/quiz/CreateQuiz";
 import EditQuiz from "../app/routes/quiz/EditQuiz";
 import SoloResult from "../app/routes/quiz/SoloResult";
-
+import QuizDetail from "../app/routes/quiz/QuizDetail";
 export const router = createBrowserRouter(
   [
     {
@@ -161,6 +161,14 @@ export const router = createBrowserRouter(
     { path: "/lobby/:sessionId", element: <HostLobby /> },
     { path: "/quiz/preview/:quizId", element: <QuizPreview /> },
     { path: "/quiz/result/:quizId", element: <SoloResult /> },
+    { 
+      path: "/report/detail/:id", 
+      element: (
+        <RequireAuth>
+          <QuizDetail />
+        </RequireAuth>
+      ),
+    },
     { path: "/search", element: <BrowseQuizzes /> },
     {
       path: "/favourites",
