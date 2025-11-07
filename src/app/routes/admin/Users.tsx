@@ -1,9 +1,11 @@
-import { useState } from "react";
-import { Edit, Trash2, Phone, Calendar, ArrowLeft, Bell } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trash2, Calendar, ArrowLeft } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
 import { storage } from "../../../libs/storage";
 import { useNavigate } from "react-router-dom";
+import { adminApi } from "../../../libs/api/adminApi";
+import { Spinner } from "../../../components/common/Spinner";
 
 interface User {
   id: string;
@@ -20,8 +22,58 @@ export default function AdminUsers() {
   const [filterRole, setFilterRole] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10); // 10 users mỗi trang
+  const [totalUsers, setTotalUsers] = useState(0);
+
   const navigate = useNavigate();
   const userInfo = storage.getUser();
+
+  // Tính tổng số trang
+  const totalPages = Math.ceil(totalUsers / pageSize);
+
+  // Gọi API lấy danh sách users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Lấy tất cả users để đếm total (hoặc BE nên trả về totalCount)
+        const allAccounts = await adminApi.getAllAccounts(1, 1000);
+        setTotalUsers(allAccounts.length);
+
+        // Pagination ở frontend vì BE không hỗ trợ totalCount
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedAccounts = allAccounts.slice(startIndex, endIndex);
+
+        // Convert AccountByRole sang User format
+        const convertedUsers: User[] = paginatedAccounts.map((account) => ({
+          id: account.accountId.toString(),
+          email: account.email,
+          fullName: account.email.split("@")[0],
+          role: account.role as "Admin" | "Teacher" | "Student",
+          isActive: account.isActive,
+          phone: undefined,
+          createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
+          lastLogin: undefined,
+        }));
+
+        setUsers(convertedUsers);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        setError("Không thể tải danh sách người dùng");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, [page, pageSize]);
 
   const handleLogout = () => {
     storage.clearAuth();
@@ -34,65 +86,40 @@ export default function AdminUsers() {
 
   const goDashboard = () => navigate("/admin");
 
-  // Mock data - sẽ thay thế bằng API call thực tế
-  const users: User[] = [
-    {
-      id: "1",
-      email: "admin@example.com",
-      fullName: "Nguyễn Văn Admin",
-      role: "Admin",
-      isActive: true,
-      phone: "0123456789",
-      createdAt: "2024-01-15",
-      lastLogin: "2024-10-04",
-    },
-    {
-      id: "2",
-      email: "teacher1@example.com",
-      fullName: "Trần Thị Giáo viên",
-      role: "Teacher",
-      isActive: true,
-      phone: "0987654321",
-      createdAt: "2024-02-20",
-      lastLogin: "2024-10-03",
-    },
-    {
-      id: "3",
-      email: "student1@example.com",
-      fullName: "Lê Văn Học sinh",
-      role: "Student",
-      isActive: true,
-      phone: undefined, // Student: để trống
-      createdAt: "2024-03-10",
-      lastLogin: "2024-10-02",
-    },
-    {
-      id: "4",
-      email: "student2@example.com",
-      fullName: "Phạm Thị Học sinh 2",
-      role: "Student",
-      isActive: false,
-      phone: undefined, // Student: để trống
-      createdAt: "2024-04-05",
-    },
-  ];
-
   const filteredUsers = users.filter((user) => {
     const matchesRole = filterRole === "all" || user.role === filterRole;
     return matchesRole;
   });
 
-  const handleDeleteUser = (user: User) => {
+  const handleDeleteUser = async (user: User) => {
     setSelectedUser(user);
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (selectedUser) {
-      // TODO: Call delete user API
-      console.log("Delete user:", selectedUser.id);
-      setShowDeleteModal(false);
-      setSelectedUser(null);
+      try {
+        // Gọi API ban account
+        await adminApi.banAccount(parseInt(selectedUser.id));
+        // Refresh danh sách sau khi ban
+        const accounts = await adminApi.getAllAccounts(page, pageSize);
+        const convertedUsers: User[] = accounts.map((account) => ({
+          id: account.accountId.toString(),
+          email: account.email,
+          fullName: account.email.split("@")[0],
+          role: account.role as "Admin" | "Teacher" | "Student",
+          isActive: account.isActive,
+          phone: undefined,
+          createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
+          lastLogin: undefined,
+        }));
+        setUsers(convertedUsers);
+        setShowDeleteModal(false);
+        setSelectedUser(null);
+      } catch (err) {
+        console.error("Error banning user:", err);
+        alert("Không thể cấm người dùng này");
+      }
     }
   };
 
@@ -171,113 +198,222 @@ export default function AdminUsers() {
         {/* Users Table */}
         <div className="card">
           <div className="card-content p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-secondary-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Vai trò
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Liên hệ
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Ngày tạo
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Hành động
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-secondary-200">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-secondary-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(
-                            user.role
-                          )}`}
-                        >
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-secondary-900">
-                          {user.role !== "Student" && user.phone && (
-                            <div className="flex items-center">
-                              <Phone className="w-4 h-4 mr-1 text-secondary-400" />
-                              {user.phone}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
-                        <div className="flex items-center">
-                          <Calendar className="w-4 h-4 mr-1" />
-                          {new Date(user.createdAt).toLocaleDateString("vi-VN")}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => goDetail(user.id)}
-                          >
-                            Xem
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => console.log("Edit user:", user.id)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteUser(user)}
-                            className="text-error-600 hover:text-error-700"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </td>
+            {/* Loading State */}
+            {loading && (
+              <div className="flex justify-center items-center py-12">
+                <Spinner size="lg" />
+                <span className="ml-3 text-secondary-600">
+                  Đang tải danh sách người dùng...
+                </span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <div className="text-center py-12">
+                <p className="text-error-600 mb-4">⚠️ {error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="text-sm text-primary-600 hover:underline"
+                >
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            {/* Data Table */}
+            {!loading && !error && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                        Vai trò
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                        Ngày tạo
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                        Hành động
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-secondary-200">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={4}
+                          className="px-6 py-12 text-center text-secondary-500"
+                        >
+                          Không tìm thấy người dùng nào
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-secondary-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
+                            {user.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(
+                                user.role
+                              )}`}
+                            >
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
+                            <div className="flex items-center">
+                              <Calendar className="w-4 h-4 mr-1" />
+                              {user.createdAt}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => goDetail(user.id)}
+                              >
+                                Xem
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteUser(user)}
+                                className="text-error-600 hover:text-error-700"
+                                title="Cấm tài khoản"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between mt-6">
-          <div className="text-sm text-secondary-700">
-            Hiển thị {filteredUsers.length} trong tổng số {users.length} người
-            dùng
+        {!loading && !error && totalUsers > 0 && (
+          <div className="flex items-center justify-between mt-6">
+            <div className="text-sm text-secondary-700">
+              Hiển thị {Math.min((page - 1) * pageSize + 1, totalUsers)} -{" "}
+              {Math.min(page * pageSize, totalUsers)} trong tổng số {totalUsers}{" "}
+              người dùng
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Nút Trước */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Trước
+              </Button>
+
+              {/* Render page numbers */}
+              {(() => {
+                const pages = [];
+                const maxPagesToShow = 5;
+
+                if (totalPages <= maxPagesToShow) {
+                  // Hiển thị tất cả nếu ít trang
+                  for (let i = 1; i <= totalPages; i++) {
+                    pages.push(
+                      <Button
+                        key={i}
+                        variant={page === i ? "primary" : "outline"}
+                        size="sm"
+                        onClick={() => setPage(i)}
+                      >
+                        {i}
+                      </Button>
+                    );
+                  }
+                } else {
+                  // Hiển thị thông minh: 1 ... 3 4 5 ... 10
+                  pages.push(
+                    <Button
+                      key={1}
+                      variant={page === 1 ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() => setPage(1)}
+                    >
+                      1
+                    </Button>
+                  );
+
+                  if (page > 3) {
+                    pages.push(
+                      <span key="dots1" className="px-2 text-secondary-500">
+                        ...
+                      </span>
+                    );
+                  }
+
+                  const start = Math.max(2, page - 1);
+                  const end = Math.min(totalPages - 1, page + 1);
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <Button
+                        key={i}
+                        variant={page === i ? "primary" : "outline"}
+                        size="sm"
+                        onClick={() => setPage(i)}
+                      >
+                        {i}
+                      </Button>
+                    );
+                  }
+
+                  if (page < totalPages - 2) {
+                    pages.push(
+                      <span key="dots2" className="px-2 text-secondary-500">
+                        ...
+                      </span>
+                    );
+                  }
+
+                  if (totalPages > 1) {
+                    pages.push(
+                      <Button
+                        key={totalPages}
+                        variant={page === totalPages ? "primary" : "outline"}
+                        size="sm"
+                        onClick={() => setPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    );
+                  }
+                }
+
+                return pages;
+              })()}
+
+              {/* Nút Sau */}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === totalPages}
+                onClick={() => setPage(page + 1)}
+              >
+                Sau
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" disabled>
-              Trước
-            </Button>
-            <Button variant="primary" size="sm">
-              1
-            </Button>
-            <Button variant="outline" size="sm">
-              2
-            </Button>
-            <Button variant="outline" size="sm">
-              Sau
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Delete Confirmation Modal */}
