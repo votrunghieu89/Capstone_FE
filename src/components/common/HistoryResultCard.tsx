@@ -3,9 +3,9 @@
 import React from "react";
 import { Button } from "./Button";
 import { Eye, BookOpen, Clock } from "lucide-react"; 
+import { QuizHistory } from "../../types/quiz"; 
 
-
-export interface QuizHistory {
+/*export interface QuizHistory {
     id: string;
     title: string;
     topic: string; // Tạm dùng cho lọc
@@ -21,7 +21,7 @@ export interface QuizHistory {
     createdBy?: string; //Tên người hoàn thành
     avatarURL?: string; 
     GroupName?: string | null; // Nếu là Quiz Nhóm lớp
-}
+}*/
 
 interface HistoryResultCardProps {
     result: QuizHistory;
@@ -48,31 +48,31 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
             </span>
         ) : (
             <span className="text-sm text-secondary-600">
-                {result.createdBy || "Người tạo không rõ"} • Người tạo 
+                {result.CreatedBy || "Người tạo không rõ"} • Người tạo 
             </span>
         );
     
     // 🛑 LOGIC BỔ SUNG: Kiểm tra dữ liệu bị thiếu từ Mock Data 🛑
-    const totalQuestionsDisplay = result.totalQuestions > 0 
-        ? `${result.totalQuestions} câu hỏi` 
+    const totalQuestionsDisplay = result.TotalQuestions > 0 
+        ? `${result.TotalQuestions} câu hỏi` 
         : 'Không rõ số câu';
 
 
     return (
-        <div key={result.id} className="card p-5 flex flex-col justify-between transition-shadow hover:shadow-lg">
+        <div key={result.QuizId} className="card p-5 flex flex-col justify-between transition-shadow hover:shadow-lg">
             <div className="flex items-start gap-4">
                 
                 {/* AVATAR */}
                 <img 
-                    src={result.avatarURL || "/default-avatar.png"} 
-                    alt={result.createdBy || "Avatar"}
+                    src={result.AvatarURL || "/default-avatar.png"} 
+                    alt={result.CreatedBy || "Avatar"}
                     className="w-12 h-12 rounded-full object-cover flex-shrink-0 mt-1"
                 />
 
                 {/* THÔNG TIN CHÍNH */}
                 <div className="flex flex-col flex-1 min-w-0">
                     <h3 className="text-lg font-bold text-secondary-900 mb-1 truncate">
-                        {result.title || "Tên Quiz không rõ"}
+                        {result.QuizTitle || "Tên Quiz không rõ"}
                     </h3>
                     
                     {/* DÒNG NGƯỜI TẠO / NHÓM LỚP */}
@@ -88,7 +88,7 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
                         <div className="flex items-center">
                             <Clock className="w-4 h-4 mr-1" />
                             {/* 🛑 SỬ DỤNG TRƯỜNG COMPLETEDAT VÀ FORMAT 🛑 */}
-                            <span>Hoàn thành: {formatDateTime(result.completedAt)}</span> 
+                            <span>Hoàn thành: {formatDateTime(result.CompletedAt)}</span> 
                         </div>
                     </div>
 
@@ -97,7 +97,7 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
                         variant="outline" 
                         size="sm" 
                         className="w-40 justify-center"
-                        onClick={() => onViewDetail(result.id.toString())}
+                        onClick={() => onViewDetail(result.QuizId.toString())}
                     >
                         <Eye className="w-4 h-4 mr-1" /> Xem chi tiết
                     </Button>

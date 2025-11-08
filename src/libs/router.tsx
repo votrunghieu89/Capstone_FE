@@ -54,6 +54,10 @@ export const router = createBrowserRouter(
       element: <Home />,
     },
     {
+      path: "/report/detail/:studentId/:quizId",
+      element: <QuizDetail />,
+    },
+    {
       path: "/auth",
       children: [
         { path: "login", element: <Login /> },

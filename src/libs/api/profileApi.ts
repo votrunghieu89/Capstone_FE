@@ -1,4 +1,5 @@
 import { apiClient } from "../apiClient";
+import { useQuery } from "@tanstack/react-query";
 import type {
   StudentProfile,
   TeacherProfile,
@@ -20,7 +21,7 @@ export const profileApi = {
   /**
    * Update student profile
    */
-  async updateStudentProfile(
+    async updateStudentProfile(
     studentId: number,
     fullName: string,
     avatar?: File
@@ -86,4 +87,12 @@ export const profileApi = {
       }
     );
   },
+};
+export const useGetStudentProfile = (studentId: number) => {
+    return useQuery({
+        queryKey: ['studentProfile', studentId],
+        queryFn: () => profileApi.getStudentProfile(studentId),
+        enabled: !!studentId,
+        staleTime: Infinity,
+    });
 };

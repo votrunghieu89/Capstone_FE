@@ -80,3 +80,60 @@ export interface QuizGroup_API {
   createAt: string;
   quizzes: QuizInGroup[];
 }
+export interface QuizHistory {
+    QuizId: string; // ID thật từ BE
+    QuizTitle: string; // Tên Quiz
+    TotalQuestions: number; // Tổng số câu hỏi
+    CompletedAt: string; // Ngày hoàn thành
+
+    // 💡 TRƯỜNG PHÂN BIỆT VAI TRÒ 💡
+    CreatedBy: string; // Tên NGƯỜI TẠO (Giáo viên)
+    CompletedBy?: string; // Tên NGƯỜI HOÀN THÀNH (Học sinh)
+
+    // Các trường API khác
+    AvatarURL?: string | null;
+    GroupName?: string | null; // Tên nhóm (Fix lỗi GroupName)
+
+    // 💡 TRƯỜNG FE/UI BỔ SUNG (Giữ lại tên camelCase)
+    topic?: string; // Tạm dùng cho lọc
+    score: number;
+    maxScore: number;
+    correctAnswers: number;
+    timeSpent: number;
+    difficulty?: "Easy" | "Medium" | "Hard";
+    class?: string; // Tên lớp (cho nhóm lớp)
+    teacher?: string; // Tên người tạo
+}
+
+// ----------------------------------------------------
+// INTERFACE CHI TIẾT KẾT QUẢ (Dùng trong QuizDetail.tsx)
+// ----------------------------------------------------
+export interface QuizDetail {
+    // 🛑 DỮ LIỆU CHÍNH TỪ API 🛑
+    QuizTitle: string;
+    NumberOfCorrectAnswers: number;
+    NumberOfWrongAnswers: number;
+    TotalQuestions: number;
+    FinalScore: number; // Điểm số
+    Rank: number; // Xếp hạng
+    StartDate: string;
+    CompletedAt: string;
+    CreatedBy: string; // Tên Người Tạo
+    
+    // 🛑 TRƯỜNG CỦA HỌC SINH ĐANG XEM 🛑
+    CompletedBy: string; // Tên Người Hoàn thành (Học sinh)
+
+    // Chi tiết câu hỏi
+    QuestionDetails: QuestionDetails[]; // Hoặc Questions: QuestionDetails[]
+    
+    // Nếu API có trả về Participants, bạn cần thêm Participants: any[];
+}
+export interface QuestionDetails {
+    id: string;
+    questionText: string;
+    userAnswer: string;
+    correctAnswer: string;
+    isCorrect: boolean;
+    options: string[];
+    // Thêm các trường khác nếu BE trả về (ví dụ: QuestionName, AnswerName)
+}
