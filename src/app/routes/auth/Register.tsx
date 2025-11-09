@@ -58,7 +58,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
-  const { toasts, success, error: showError, removeToast} = useToast();
+  const { toasts, success, error: showError, removeToast } = useToast();
 
   const {
     register,
@@ -83,30 +83,90 @@ export default function Register() {
   const selectedRole = watch("role");
 
   // Handle Google Register (use selected role)
-  const handleGoogleRegister = async () => {
+  const handleGoogleRegister = () => {
     setIsGoogleLoading(true);
     try {
-      // Initialize Google OAuth
       // @ts-ignore
       const google = window.google;
       if (!google) {
         showError("Google OAuth chưa được tải. Vui lòng thử lại sau.");
+        setIsGoogleLoading(false);
         return;
       }
 
-      // Show Google One Tap or redirect to Google OAuth
-      showError("Chức năng đang phát triển. Vui lòng sử dụng form đăng ký.");
-      
-      // TODO: Implement Google OAuth flow
-      // When you get idToken from Google:
-      // const { user, response } = await handleGoogleAuth(idToken, selectedRole);
-      // success("✅ Đăng ký thành công!");
-      // setTimeout(() => navigate(getRedirectPath(response.role)), 1000);
-      
+      // Get Google Client ID from env
+      // @ts-ignore
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+      if (!clientId || clientId === "your-google-client-id") {
+        showError(
+          "Google Client ID chưa được cấu hình. Vui lòng liên hệ admin."
+        );
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      // Create a temporary div for Google button
+      const tempDiv = document.createElement("div");
+      tempDiv.id = "google-signin-button";
+      tempDiv.style.display = "none";
+      document.body.appendChild(tempDiv);
+
+      // Initialize Google OAuth with popup mode
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response: any) => {
+          try {
+            const { response: registerResponse } = await handleGoogleAuth(
+              response.credential,
+              selectedRole
+            );
+            success("✅ Đăng ký thành công!");
+            setTimeout(
+              () => navigate(getRedirectPath(registerResponse.role)),
+              1000
+            );
+          } catch (error: any) {
+            console.error("Google register error:", error);
+            showError(
+              error.response?.data?.message || "Đăng ký Google thất bại."
+            );
+          } finally {
+            setIsGoogleLoading(false);
+            // Remove temp div
+            if (tempDiv.parentNode) {
+              tempDiv.parentNode.removeChild(tempDiv);
+            }
+          }
+        },
+        ux_mode: "popup", // Use popup instead of redirect
+      });
+
+      // Render button and trigger click
+      google.accounts.id.renderButton(tempDiv, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        width: 250,
+      });
+
+      // Auto-click the button to show popup
+      setTimeout(() => {
+        const button = tempDiv.querySelector(
+          'div[role="button"]'
+        ) as HTMLElement;
+        if (button) {
+          button.click();
+        } else {
+          showError("Không thể mở Google Sign-In. Vui lòng thử lại.");
+          setIsGoogleLoading(false);
+          if (tempDiv.parentNode) {
+            tempDiv.parentNode.removeChild(tempDiv);
+          }
+        }
+      }, 100);
     } catch (error: any) {
       console.error("Google register error:", error);
-      showError(error.response?.data?.message || "Đăng ký Google thất bại.");
-    } finally {
+      showError("Lỗi khởi tạo Google OAuth.");
       setIsGoogleLoading(false);
     }
   };
@@ -356,9 +416,9 @@ export default function Register() {
                   </div>
                 </div>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   className="w-full"
                   onClick={handleGoogleRegister}
                   loading={isGoogleLoading}
