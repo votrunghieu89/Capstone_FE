@@ -11,6 +11,7 @@ import { storage } from "../../../libs/storage";
 import { Logo } from "../../../components/common/Logo";
 import { authApi } from "../../../libs/api/authApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
+import { handleGoogleAuth, getRedirectPath } from "../../../utils/googleAuth";
 
 const registerSchema = z
   .object({
@@ -55,8 +56,9 @@ type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
-  const { toasts, success, error: showError, removeToast } = useToast();
+  const { toasts, success, error: showError, removeToast} = useToast();
 
   const {
     register,
@@ -76,6 +78,38 @@ export default function Register() {
       organizationName: "",
     },
   });
+
+  // Watch selected role for Google registration
+  const selectedRole = watch("role");
+
+  // Handle Google Register (use selected role)
+  const handleGoogleRegister = async () => {
+    setIsGoogleLoading(true);
+    try {
+      // Initialize Google OAuth
+      // @ts-ignore
+      const google = window.google;
+      if (!google) {
+        showError("Google OAuth chưa được tải. Vui lòng thử lại sau.");
+        return;
+      }
+
+      // Show Google One Tap or redirect to Google OAuth
+      showError("Chức năng đang phát triển. Vui lòng sử dụng form đăng ký.");
+      
+      // TODO: Implement Google OAuth flow
+      // When you get idToken from Google:
+      // const { user, response } = await handleGoogleAuth(idToken, selectedRole);
+      // success("✅ Đăng ký thành công!");
+      // setTimeout(() => navigate(getRedirectPath(response.role)), 1000);
+      
+    } catch (error: any) {
+      console.error("Google register error:", error);
+      showError(error.response?.data?.message || "Đăng ký Google thất bại.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   // Log errors khi có thay đổi
   useEffect(() => {
@@ -322,7 +356,14 @@ export default function Register() {
                   </div>
                 </div>
 
-                <Button type="button" variant="outline" className="w-full">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleGoogleRegister}
+                  loading={isGoogleLoading}
+                  disabled={isGoogleLoading}
+                >
                   <svg
                     className="w-5 h-5 mr-2"
                     viewBox="0 0 24 24"

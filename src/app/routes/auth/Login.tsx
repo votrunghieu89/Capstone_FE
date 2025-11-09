@@ -12,6 +12,7 @@ import { Logo } from "../../../components/common/Logo";
 import { authApi } from "../../../libs/api/authApi";
 import { profileApi } from "../../../libs/api/profileApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
+import { handleGoogleAuth, getRedirectPath } from "../../../utils/googleAuth";
 
 const loginSchema = z.object({
   email: z.string().email("Email không hợp lệ"),
@@ -22,6 +23,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toasts, success, error: showError, removeToast } = useToast();
 
@@ -32,6 +34,36 @@ export default function Login() {
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
+
+  // Handle Google Login (default to Student role)
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    try {
+      // Initialize Google OAuth
+      // @ts-ignore
+      const google = window.google;
+      if (!google) {
+        showError("Google OAuth chưa được tải. Vui lòng thử lại sau.");
+        return;
+      }
+
+      // Show Google One Tap or redirect to Google OAuth
+      showError("Chức năng đang phát triển. Vui lòng sử dụng email/password.");
+      
+      // TODO: Implement Google OAuth flow
+      // When you get idToken from Google:
+      // const { user, response } = await handleGoogleAuth(idToken, "Student");
+      // success("✅ Đăng nhập thành công!");
+      // setTimeout(() => navigate(getRedirectPath(response.role)), 1000);
+      
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      showError(error.response?.data?.message || "Đăng nhập Google thất bại.");
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
@@ -191,7 +223,14 @@ export default function Login() {
                   </div>
                 </div>
 
-                <Button type="button" variant="outline" className="w-full">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleGoogleLogin}
+                  loading={isGoogleLoading}
+                  disabled={isGoogleLoading}
+                >
                   <svg
                     className="w-5 h-5 mr-2"
                     viewBox="0 0 24 24"
