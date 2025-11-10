@@ -525,8 +525,8 @@ export default function TeacherFolders() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <button
-                        className="p-0.5 hover:bg-white/20 rounded transition-colors"
+                      <span
+                        className="p-0.5 hover:bg-white/20 rounded transition-colors cursor-pointer"
                         onClick={(e) => {
                           e.stopPropagation();
                           setIsFoldersExpanded(!isFoldersExpanded);
@@ -537,7 +537,7 @@ export default function TeacherFolders() {
                         ) : (
                           <ChevronRight className="w-3.5 h-3.5" />
                         )}
-                      </button>
+                      </span>
                       <Folder className="w-4 h-4" />
                       <span>Thư mục của bạn</span>
                     </div>
@@ -651,18 +651,23 @@ export default function TeacherFolders() {
                   ).map((folder) => (
                     <div
                       key={folder.folderId}
-                      className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white cursor-pointer relative"
-                      onClick={() => setSelectedFolder(folder.folderId)}
+                      className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white relative"
                     >
-                      {/* Folder Cover */}
-                      <div className="h-40 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 flex items-center justify-center relative">
+                      {/* Folder Cover - Clickable area */}
+                      <div
+                        className="h-40 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 flex items-center justify-center relative cursor-pointer"
+                        onClick={() => setSelectedFolder(folder.folderId)}
+                      >
                         <Folder className="w-20 h-20 text-blue-500 opacity-80" />
 
                         {/* 3-dot Menu Button */}
                         <div className="absolute top-3 right-3">
                           <button
                             className="p-2 bg-white/80 backdrop-blur-sm rounded-lg hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
-                            onClick={(e) => toggleMenu(folder.folderId, e)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMenu(folder.folderId, e);
+                            }}
                           >
                             <MoreVertical className="w-4 h-4 text-secondary-600" />
                           </button>
@@ -685,8 +690,11 @@ export default function TeacherFolders() {
                         </div>
                       </div>
 
-                      {/* Folder Info */}
-                      <div className="p-4">
+                      {/* Folder Info - Clickable area */}
+                      <div
+                        className="p-4 cursor-pointer"
+                        onClick={() => setSelectedFolder(folder.folderId)}
+                      >
                         <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
                           {folder.folderName}
                         </h3>

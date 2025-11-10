@@ -22,6 +22,9 @@ class ApiClient {
         const token = localStorage.getItem("access_token");
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log("Request with token:", token.substring(0, 20) + "...");
+        } else {
+          console.warn("No token found for request:", config.url);
         }
         return config;
       },
@@ -41,6 +44,8 @@ class ApiClient {
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
 
+          console.log("Got 401, attempting to refresh token...");
+
           try {
             const refreshToken = localStorage.getItem("refresh_token");
             const userStr = localStorage.getItem("user");
@@ -48,6 +53,8 @@ class ApiClient {
             if (refreshToken && userStr) {
               const user = JSON.parse(userStr);
               const accountId = parseInt(user.id);
+
+              console.log("Refreshing token for accountId:", accountId);
 
               const response = await this.client.post("/Auth/accessToken", {
                 accountId,
@@ -57,11 +64,17 @@ class ApiClient {
               const { accessToken } = response.data;
               localStorage.setItem("access_token", accessToken);
 
+              console.log("Token refreshed successfully");
+
               originalRequest.headers.Authorization = `Bearer ${accessToken}`;
               return this.client(originalRequest);
+            } else {
+              console.error("No refresh token or user found");
+              throw new Error("No refresh token");
             }
           } catch (refreshError) {
             // Refresh failed, redirect to login
+            console.error("Token refresh failed:", refreshError);
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");

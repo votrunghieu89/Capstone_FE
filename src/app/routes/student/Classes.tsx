@@ -1,412 +1,527 @@
-import React, { useState } from "react";
+﻿import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
   BookOpen,
   Calendar,
-  Clock,
   Play,
-  Eye,
-  Trophy,
-  Target,
-  CheckCircle,
-  XCircle,
+  Loader2,
+  LogOut,
+  Copy,
   Hash,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import {
+  groupService,
+  AllGroupDTO,
+  ViewQuizDTO,
+} from "../../../services/groupService";
+import { toast } from "react-hot-toast";
 
-interface Class {
-  id: string;
-  name: string;
-  description: string;
-  teacherName: string;
-  studentCount: number;
-  joinedAt: string;
-  quizzes: ClassQuiz[];
-}
-
-interface ClassQuiz {
-  id: string;
-  title: string;
-  description: string;
-  isAssigned: boolean;
-  assignedAt?: string;
-  dueDate?: string;
-  isCompleted: boolean;
-  score?: number;
-  maxScore?: number;
-  timeLimit?: number; // in minutes
-  difficulty: "Easy" | "Medium" | "Hard";
+interface ClassWithDetails extends AllGroupDTO {
+  quizzes?: ViewQuizDTO[];
+  groupDescription?: string;
+  idUnique?: string;
+  createAt?: string;
 }
 
 export default function StudentClasses() {
   const navigate = useNavigate();
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [classes, setClasses] = useState<ClassWithDetails[]>([]);
+  const [selectedClass, setSelectedClass] = useState<ClassWithDetails | null>(
+    null
+  );
   const [joinCode, setJoinCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [detailQuizzes, setDetailQuizzes] = useState<ViewQuizDTO[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15; // 5 rows x 3 columns
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [classToLeave, setClassToLeave] = useState<number | null>(null);
 
-  // Mock data - sẽ thay thế bằng API call thực tế
-  const classes: Class[] = [
-    {
-      id: "1",
-      name: "Lớp 10A1 - Toán học",
-      description: "Lớp Toán học nâng cao",
-      teacherName: "Nguyễn Văn Giáo viên",
-      studentCount: 25,
-      joinedAt: "2024-09-01",
-      quizzes: [
-        {
-          id: "1",
-          title: "Kiểm tra Toán chương 1",
-          description: "Bài kiểm tra về đại số cơ bản",
-          isAssigned: true,
-          assignedAt: "2024-09-15",
-          dueDate: "2024-10-15",
-          isCompleted: true,
-          score: 85,
-          maxScore: 100,
-          timeLimit: 45,
-          difficulty: "Medium",
-        },
-        {
-          id: "2",
-          title: "Quiz Hình học",
-          description: "Câu hỏi về tam giác và đường tròn",
-          isAssigned: true,
-          assignedAt: "2024-09-20",
-          dueDate: "2024-10-20",
-          isCompleted: false,
-          timeLimit: 30,
-          difficulty: "Easy",
-        },
-        {
-          id: "3",
-          title: "Bài tập về nhà - Đại số",
-          description: "Luyện tập các dạng bài tập đại số",
-          isAssigned: false,
-          isCompleted: false,
-          difficulty: "Hard",
-        },
-      ],
-    },
-    {
-      id: "2",
-      name: "Lớp 11B2 - Vật lý",
-      description: "Lớp Vật lý cơ bản",
-      teacherName: "Trần Thị Giáo viên",
-      studentCount: 30,
-      joinedAt: "2024-09-05",
-      quizzes: [
-        {
-          id: "4",
-          title: "Kiểm tra Vật lý - Điện học",
-          description: "Bài kiểm tra về dòng điện và từ trường",
-          isAssigned: true,
-          assignedAt: "2024-09-25",
-          dueDate: "2024-10-25",
-          isCompleted: false,
-          timeLimit: 60,
-          difficulty: "Hard",
-        },
-      ],
-    },
-  ];
+  const getStudentId = () => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        const id = payload.AccountId || payload.StudentId || payload.nameid;
+        if (id) return parseInt(id);
+      } catch (error) {
+        console.error("Error parsing token:", error);
+      }
+    }
+    return 0;
+  };
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "Easy":
-        return "bg-success-100 text-success-800";
-      case "Medium":
-        return "bg-warning-100 text-warning-800";
-      case "Hard":
-        return "bg-error-100 text-error-800";
-      default:
-        return "bg-secondary-100 text-secondary-800";
+  const fetchClasses = async () => {
+    setLoading(true);
+    try {
+      const studentId = getStudentId();
+      if (!studentId) {
+        toast.error("Vui lòng đăng nhập");
+        return;
+      }
+      const data = await groupService.getGroupsByStudentId(studentId);
+      setClasses(data);
+    } catch (error: any) {
+      toast.error("Không thể tải danh sách lớp");
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusColor = (isCompleted: boolean, isAssigned: boolean) => {
-    if (isCompleted) return "bg-success-100 text-success-800";
-    if (isAssigned) return "bg-primary-100 text-primary-800";
-    return "bg-secondary-100 text-secondary-800";
-  };
+  useEffect(() => {
+    fetchClasses();
+  }, []);
 
-  const getStatusText = (isCompleted: boolean, isAssigned: boolean) => {
-    if (isCompleted) return "Đã hoàn thành";
-    if (isAssigned) return "Chưa làm";
-    return "Chưa gán";
-  };
+  const handleViewDetail = async (classItem: ClassWithDetails) => {
+    try {
+      const detail = await groupService.getGroupDetail(classItem.groupId);
+      setSelectedClass({
+        ...classItem,
+        quizzes: detail.quizzes,
+        groupDescription: detail.groupDescription,
+        idUnique: detail.idUnique,
+      });
+      setDetailQuizzes(detail.quizzes || []);
+    } catch (error: any) {
+      console.warn(
+        "Cannot fetch class detail, showing basic info:",
+        error.message
+      );
 
-  const selectedClassData = classes.find((c) => c.id === selectedClass);
+      // Silently handle error - still show the class with empty quiz list
+      // Don't show error toast to avoid annoying users
+      setSelectedClass({
+        ...classItem,
+        quizzes: [],
+        groupDescription:
+          classItem.groupDescription || `Lớp ${classItem.groupName}`,
+        idUnique: classItem.idUnique,
+      });
+      setDetailQuizzes([]);
+    }
+  };
 
   const handleJoinClass = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!joinCode.trim()) return;
+    if (!joinCode.trim()) {
+      toast.error("Vui lòng nhập mã lớp");
+      return;
+    }
     setIsJoining(true);
-    // TODO: Call API join class with joinCode
-    await new Promise((r) => setTimeout(r, 800));
-    setIsJoining(false);
-    setJoinCode("");
-    // Hiện tại chỉ mock: hiển thị thông báo
-    alert(
-      "Yêu cầu tham gia lớp đã được gửi (mock). Khi có BE sẽ thêm vào danh sách."
-    );
+    try {
+      const studentId = getStudentId();
+      await groupService.joinGroupByInvite(joinCode, studentId);
+      toast.success("Tham gia lớp thành công!");
+      setJoinCode("");
+      fetchClasses();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Tham gia lớp thất bại");
+    } finally {
+      setIsJoining(false);
+    }
   };
 
-  const handleViewQuizDetail = (quizId: string, classId: string) => {
-    // Always show preview when clicking "View Details"
-    // Pass classId to indicate this quiz is from a class
-    navigate(`/quiz/preview/${quizId}?classId=${classId}`);
+  const handleLeaveClass = (groupId: number) => {
+    setClassToLeave(groupId);
+    setShowLeaveConfirm(true);
   };
 
-  const handleViewResult = (quizId: string, classId: string) => {
-    // Navigate to result page with pattern: class-{classId}-{quizId}
-    // This will show the leaderboard for this class quiz
-    navigate(`/play/result/class-${classId}-${quizId}`);
+  const confirmLeaveClass = async () => {
+    if (!classToLeave) return;
+
+    try {
+      const studentId = getStudentId();
+      await groupService.leaveGroup(classToLeave, studentId, 0);
+      toast.success("Đã rời khỏi lớp");
+      setSelectedClass(null);
+      fetchClasses();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Không thể rời lớp");
+    } finally {
+      setClassToLeave(null);
+    }
+  };
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast.success("Đã copy mã lớp");
+  };
+
+  // Navigate to quiz preview page (student view)
+  // Preview page will show quiz details with "Bắt đầu làm Quiz" button
+  // (No "Tổ chức Live" button for students - that's teacher only)
+  const handleStartQuiz = (quizId: number) => {
+    navigate(`/quiz/preview/${quizId}`);
   };
 
   return (
-    <div className="w-full">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-secondary-900 mb-2">
-          🎓 Lớp học
-        </h1>
-        <p className="text-secondary-600">Các lớp học bạn đã tham gia</p>
-      </div>
+    <>
+      <ConfirmDialog
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={confirmLeaveClass}
+        title="Rời khỏi lớp"
+        message="Bạn có chắc chắn muốn rời khỏi lớp này?"
+        confirmText="Rời lớp"
+        cancelText="Hủy"
+        confirmVariant="destructive"
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Classes List & Join */}
-        <div className="lg:col-span-1">
-          <div className="card mb-4">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold text-secondary-900">
-                Tham gia lớp học
-              </h3>
-            </div>
-            <div className="card-content">
-              <form onSubmit={handleJoinClass} className="space-y-3">
-                <Input
-                  label="Mã lớp"
-                  placeholder="Nhập mã lớp (VD: ABC123)"
-                  icon={<Hash size={16} />}
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  maxLength={8}
-                />
-                <Button
-                  type="submit"
-                  className="w-full"
-                  loading={isJoining}
-                  disabled={isJoining || !joinCode.trim()}
-                >
-                  Tham gia lớp
-                </Button>
-              </form>
-            </div>
-          </div>
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-semibold text-secondary-900">
-                Danh sách lớp học
-              </h3>
-            </div>
-            <div className="card-content">
-              <div className="space-y-3">
-                {classes.map((classItem) => (
-                  <div
-                    key={classItem.id}
-                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                      selectedClass === classItem.id
-                        ? "border-primary-500 bg-primary-50"
-                        : "border-secondary-200 hover:border-secondary-300"
-                    }`}
-                    onClick={() => setSelectedClass(classItem.id)}
-                  >
-                    <h4 className="font-medium text-secondary-900 mb-1">
-                      {classItem.name}
-                    </h4>
-                    <p className="text-sm text-secondary-600 mb-2">
-                      {classItem.description}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-secondary-500">
-                      <span>GV: {classItem.teacherName}</span>
-                      <span>{classItem.studentCount} HS</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+      <div className="w-full p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-secondary-900 mb-2">
+            {" "}
+            Lớp học của tôi
+          </h1>
+          <p className="text-secondary-600">Quản lý các lớp học và bài tập</p>
         </div>
-
-        {/* Class Details */}
-        <div className="lg:col-span-2">
-          {selectedClassData ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
+          <aside className="space-y-4">
             <div className="card">
-              <div className="card-header">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-secondary-900">
-                      {selectedClassData.name}
-                    </h3>
-                    <p className="text-secondary-600">
-                      Giáo viên: {selectedClassData.teacherName}
-                    </p>
-                  </div>
-                  <div className="text-sm text-secondary-500">
-                    Tham gia:{" "}
-                    {new Date(selectedClassData.joinedAt).toLocaleDateString(
-                      "vi-VN"
-                    )}
-                  </div>
-                </div>
-              </div>
               <div className="card-content">
-                <div className="space-y-4">
-                  {selectedClassData.quizzes.map((quiz) => (
-                    <div
-                      key={quiz.id}
-                      className="p-4 border border-secondary-200 rounded-lg"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-secondary-900 mb-1">
-                            {quiz.title}
-                          </h4>
-                          <p className="text-sm text-secondary-600 mb-2">
-                            {quiz.description}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(
-                              quiz.difficulty
-                            )}`}
-                          >
-                            {quiz.difficulty}
-                          </span>
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                              quiz.isCompleted,
-                              quiz.isAssigned
-                            )}`}
-                          >
-                            {getStatusText(quiz.isCompleted, quiz.isAssigned)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm text-secondary-500 mb-3">
-                        <div className="flex items-center space-x-4">
-                          {quiz.timeLimit && (
-                            <div className="flex items-center">
-                              <Clock className="w-4 h-4 mr-1" />
-                              {quiz.timeLimit} phút
-                            </div>
-                          )}
-                          {quiz.assignedAt && (
-                            <div className="flex items-center">
-                              <Calendar className="w-4 h-4 mr-1" />
-                              Giao:{" "}
-                              {new Date(quiz.assignedAt).toLocaleDateString(
-                                "vi-VN"
-                              )}
-                            </div>
-                          )}
-                          {quiz.dueDate && (
-                            <div className="flex items-center">
-                              <Target className="w-4 h-4 mr-1" />
-                              Hạn:{" "}
-                              {new Date(quiz.dueDate).toLocaleDateString(
-                                "vi-VN"
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {quiz.isCompleted && quiz.score !== undefined && (
-                          <div className="flex items-center text-success-600">
-                            <Trophy className="w-4 h-4 mr-1" />
-                            {quiz.score}/{quiz.maxScore} điểm
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            handleViewQuizDetail(quiz.id, selectedClassData.id)
-                          }
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          Xem chi tiết
-                        </Button>
-                        {quiz.isAssigned && !quiz.isCompleted && (
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              handleViewQuizDetail(
-                                quiz.id,
-                                selectedClassData.id
-                              )
-                            }
-                          >
-                            <Play className="w-4 h-4 mr-1" />
-                            Bắt đầu làm
-                          </Button>
-                        )}
-                        {quiz.isCompleted && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-success-600 hover:bg-success-50"
-                            onClick={() =>
-                              handleViewResult(quiz.id, selectedClass!)
-                            }
-                          >
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Đã hoàn thành
-                          </Button>
-                        )}
-                        {!quiz.isAssigned && (
-                          <Button variant="outline" size="sm" disabled>
-                            <XCircle className="w-4 h-4 mr-1" />
-                            Chưa được gán
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="text-sm font-semibold text-secondary-900 mb-3">
+                  Tham gia lớp học
+                </h3>
+                <form onSubmit={handleJoinClass} className="space-y-3">
+                  <Input
+                    placeholder="Nhập mã lớp"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    maxLength={10}
+                  />
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    size="sm"
+                    disabled={isJoining || !joinCode.trim()}
+                  >
+                    {isJoining ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Hash className="w-4 h-4" />
+                    )}
+                    <span className="ml-2">Tham gia</span>
+                  </Button>
+                </form>
+              </div>
+            </div>
+            <div className="card">
+              <div className="card-content">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-secondary-900">
+                    Danh sách lớp đã tham gia
+                  </h3>
+                  <span className="text-xs text-secondary-500">
+                    {classes.length}
+                  </span>
                 </div>
-
-                {selectedClassData.quizzes.length === 0 && (
-                  <div className="text-center py-8">
-                    <BookOpen className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
-                    <p className="text-secondary-600">
-                      Chưa có quiz nào trong lớp này
-                    </p>
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+                  </div>
+                ) : classes.length === 0 ? (
+                  <p className="text-sm text-secondary-500 text-center py-8">
+                    Chưa tham gia lớp nào
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {classes.map((classItem) => (
+                      <button
+                        key={classItem.groupId}
+                        onClick={() => handleViewDetail(classItem)}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          selectedClass?.groupId === classItem.groupId
+                            ? "bg-primary-600 text-white font-medium"
+                            : "text-secondary-700 hover:bg-secondary-100"
+                        }`}
+                      >
+                        {classItem.groupName}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
-          ) : (
-            <div className="card">
-              <div className="card-content text-center py-12">
-                <Users className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-secondary-900 mb-2">
-                  Chọn lớp học để xem chi tiết
-                </h3>
-                <p className="text-secondary-600">
-                  Nhấn vào lớp học bên trái để xem các quiz
-                </p>
+          </aside>
+          <main className="flex flex-col">
+            {!selectedClass ? (
+              // Show all classes as grid when no class is selected
+              loading ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary-600" />
+                </div>
+              ) : classes.length === 0 ? (
+                <div className="card">
+                  <div className="card-content text-center py-12">
+                    <Users className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-secondary-900 mb-2">
+                      Chưa tham gia lớp nào
+                    </h3>
+                    <p className="text-secondary-600">
+                      Nhập mã lớp ở bên trái để tham gia lớp học
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col">
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-secondary-900 mb-2">
+                      Tất cả lớp học
+                    </h2>
+                    <p className="text-secondary-600">
+                      Click vào lớp để xem chi tiết và quiz
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {classes
+                      .slice(
+                        (currentPage - 1) * itemsPerPage,
+                        currentPage * itemsPerPage
+                      )
+                      .map((classItem) => (
+                        <div
+                          key={classItem.groupId}
+                          className="card hover:shadow-lg transition-all cursor-pointer"
+                          onClick={() => handleViewDetail(classItem)}
+                        >
+                          <div className="card-content relative p-4">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-lg font-bold text-secondary-900 truncate mb-1">
+                                  Lớp {classItem.groupName}
+                                </h3>
+                                <p className="text-xs text-secondary-500 truncate">
+                                  {classItem.groupDescription ||
+                                    `Lớp ${classItem.groupName}`}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-error-600"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLeaveClass(classItem.groupId);
+                                }}
+                              >
+                                <LogOut className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+
+                            {/* Mã lớp */}
+                            {classItem.idUnique && (
+                              <div className="flex items-center gap-1.5 bg-secondary-100 px-2 py-1 rounded mb-3">
+                                <Hash className="w-3 h-3 text-secondary-600" />
+                                <span className="font-mono text-xs font-semibold text-secondary-700 flex-1">
+                                  {classItem.idUnique}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyCode(classItem.idUnique || "");
+                                  }}
+                                  className="text-primary-600 hover:text-primary-700"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              </div>
+                            )}
+
+                            <div className="text-center p-3 bg-primary-50 rounded-lg">
+                              <BookOpen className="w-6 h-6 text-primary-600 mx-auto mb-1" />
+                              <p className="text-xs text-primary-600 font-medium">
+                                Xem chi tiết lớp học
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  {/* Pagination - At the bottom, separate from grid */}
+                  <div className="mt-auto pt-8">
+                    {classes.length > itemsPerPage && (
+                      <div className="flex justify-center items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage((p) => Math.max(1, p - 1))
+                          }
+                          disabled={currentPage === 1}
+                        >
+                          Trước
+                        </Button>
+
+                        {Array.from(
+                          { length: Math.ceil(classes.length / itemsPerPage) },
+                          (_, i) => i + 1
+                        ).map((page) => (
+                          <Button
+                            key={page}
+                            variant={
+                              currentPage === page ? "primary" : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                          >
+                            {page}
+                          </Button>
+                        ))}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setCurrentPage((p) =>
+                              Math.min(
+                                Math.ceil(classes.length / itemsPerPage),
+                                p + 1
+                              )
+                            )
+                          }
+                          disabled={
+                            currentPage ===
+                            Math.ceil(classes.length / itemsPerPage)
+                          }
+                        >
+                          Tiếp
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            ) : (
+              <div>
+                {/* Back Button - Outside card */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedClass(null)}
+                  className="mb-4 bg-secondary-50 hover:bg-secondary-100"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Quay lại
+                </Button>
+
+                <div className="card">
+                  <div className="card-content border-b border-secondary-200">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h2 className="text-2xl font-bold text-secondary-900 mb-2">
+                          Lớp {selectedClass.groupName}
+                        </h2>
+                        <p className="text-secondary-600 mb-3">
+                          {selectedClass.groupDescription ||
+                            `Lớp ${selectedClass.groupName}`}
+                        </p>
+                        {selectedClass.idUnique && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-secondary-600">Mã lớp:</span>
+                            <code className="bg-secondary-100 px-2 py-1 rounded font-mono">
+                              {selectedClass.idUnique}
+                            </code>
+                            <button
+                              onClick={() =>
+                                handleCopyCode(selectedClass.idUnique!)
+                              }
+                              className="text-primary-600 hover:text-primary-700"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-error-600 border-error-600 hover:bg-error-50"
+                        onClick={() => handleLeaveClass(selectedClass.groupId)}
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Rời lớp
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="card-content">
+                    <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+                      Quiz đã giao
+                    </h3>
+                    {detailQuizzes.length === 0 ? (
+                      <p className="text-sm text-secondary-500 text-center py-8">
+                        Chưa có quiz nào được giao
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {detailQuizzes.map((quiz) => (
+                          <div
+                            key={quiz.qgId}
+                            className="card border border-secondary-200"
+                          >
+                            <div className="card-content">
+                              <div className="flex items-center gap-4 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                  <BookOpen className="w-6 h-6 text-primary-600" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-secondary-900 mb-1">
+                                    {quiz.title}
+                                  </h4>
+                                  <div className="flex items-center gap-3 text-sm text-secondary-600 mb-2">
+                                    <span>GV: {quiz.teacherName}</span>
+                                    <span>•</span>
+                                    <span>
+                                      Giao:{" "}
+                                      {new Date(
+                                        quiz.dateCreated
+                                      ).toLocaleDateString("vi-VN")}
+                                    </span>
+                                  </div>
+                                  {quiz.expiredDate && (
+                                    <div className="flex items-center gap-1.5 text-xs text-error-600">
+                                      <Calendar className="w-3.5 h-3.5" />
+                                      Hết hạn:{" "}
+                                      {new Date(
+                                        quiz.expiredDate
+                                      ).toLocaleDateString("vi-VN")}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Button căn giữa */}
+                              <div className="flex justify-center">
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    handleStartQuiz(
+                                      quiz.deliveredQuiz?.quizId || quiz.quizId
+                                    )
+                                  }
+                                >
+                                  <Play className="w-4 h-4 mr-2" />
+                                  Làm bài
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </main>
         </div>
       </div>
-    </div>
+    </>
   );
 }
