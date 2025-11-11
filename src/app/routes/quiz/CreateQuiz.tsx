@@ -245,14 +245,14 @@ const mapQuestionType = (type: "MultipleChoice" | "TrueFalse"): "MCQ" | "TF" => 
       if (thumbnailFile) {
         console.log("LOG 3: Starting file upload...");
         const formData = new FormData();
-        formData.append("file", thumbnailFile);
+        formData.append("AvatarURL", thumbnailFile);
 
         const uploadResponse = (await apiClient.post(
           "/Quiz/uploadImage",
           formData,
           { headers: { "Content-Type": "multipart/form-data" } }
         )) as any;
-
+        avatarURL=uploadResponse.imageUrl;
         console.log("uploadResponse:", uploadResponse);
         console.log(uploadResponse.data);
         // Lấy URL (Kiểm tra nhiều key)
