@@ -40,6 +40,42 @@ export default function TeacherFolders() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderType | null>(null);
 
+const [quizToDeleteId, setQuizToDeleteId] = useState<string | null>(null);
+const [showQuizDeleteModal, setShowQuizDeleteModal] = useState(false);
+const [isQuizDeleting, setIsQuizDeleting] = useState(false);
+const handleDeleteQuizClick = (quizId: string) => {
+    setQuizToDeleteId(quizId);
+    setShowQuizDeleteModal(true);
+    setOpenMenuId(null); // Đóng menu ba chấm
+};
+
+// ✅ HÀM GỌI API XÓA
+const confirmDeleteQuiz = async () => {
+    if (!quizToDeleteId) return;
+
+    setIsQuizDeleting(true);
+    try {
+        // API: DELETE /api/Quiz/deleteQuiz/{quizId}
+        await folderService.deleteQuiz(quizToDeleteId);
+
+        alert('Xóa Quiz thành công!');
+        
+        // Refresh danh sách quiz
+        if (selectedFolder !== null) {
+            await fetchFolderDetail(selectedFolder);
+        } else {
+            await fetchAllFolders();
+        }
+
+    } catch (error: any) {
+        console.error("Error deleting quiz:", error);
+        alert(error.response?.data?.message || 'Không thể xóa Quiz.');
+    } finally {
+        setIsQuizDeleting(false);
+        setShowQuizDeleteModal(false);
+        setQuizToDeleteId(null);
+    }
+};
   // Data from API
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -735,12 +771,11 @@ export default function TeacherFolders() {
                         <div className="absolute top-3 right-3">
                           <button
                             className="p-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
+                            onClick={(e) => toggleMenu(parseInt(quiz.quizzId.toString()), e)}
                           >
                             <MoreVertical className="w-4 h-4 text-white" />
                           </button>
+                          
                         </div>
                       </div>
 
