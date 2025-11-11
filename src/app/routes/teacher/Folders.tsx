@@ -12,6 +12,8 @@ import {
   ChevronRight,
   Trash2,
   Loader2,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
@@ -21,6 +23,7 @@ import {
   FolderType,
   QuizInFolder as Quiz,
 } from "../../../services/folderService";
+import { quizService } from "../../../services/quizService";
 import toast from "react-hot-toast";
 
 export default function TeacherFolders() {
@@ -37,8 +40,11 @@ export default function TeacherFolders() {
     null
   );
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+  const [openQuizMenuId, setOpenQuizMenuId] = useState<number | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<FolderType | null>(null);
+  const [showDeleteQuizModal, setShowDeleteQuizModal] = useState(false);
+  const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
 
   // Data from API
   const [folders, setFolders] = useState<FolderType[]>([]);
@@ -46,6 +52,7 @@ export default function TeacherFolders() {
   const [loading, setLoading] = useState(false);
 
   const [newFolderName, setNewFolderName] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Get teacherId from localStorage
   const getTeacherId = (): number => {
@@ -115,7 +122,11 @@ export default function TeacherFolders() {
     try {
       setLoading(true);
       const data = await folderService.getFolderDetail(teacherId, folderId);
-      setQuizzes(data.quizzFolder);
+      // Sắp xếp quiz: mới tạo (id lớn) nằm trước
+      const sorted = [...data.quizzFolder].sort(
+        (a, b) => b.quizzId - a.quizzId
+      );
+      setQuizzes(sorted);
     } catch (error: any) {
       console.error("Error fetching folder detail:", error);
       toast.error(
@@ -146,13 +157,16 @@ export default function TeacherFolders() {
       if (openMenuId) {
         setOpenMenuId(null);
       }
+      if (openQuizMenuId) {
+        setOpenQuizMenuId(null);
+      }
     };
 
     document.addEventListener("click", handleClickOutside);
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
-  }, [openMenuId]);
+  }, [openMenuId, openQuizMenuId]);
 
   // Helper function to count quizzes recursively (from folders tree)
   const countQuizzes = (folder: FolderType): number => {
@@ -361,6 +375,43 @@ export default function TeacherFolders() {
     setOpenMenuId(openMenuId === folderId ? null : folderId);
   };
 
+  const toggleQuizMenu = (quizId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setOpenQuizMenuId(openQuizMenuId === quizId ? null : quizId);
+  };
+
+  const handleDeleteQuiz = (quiz: Quiz, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setQuizToDelete(quiz);
+    setShowDeleteQuizModal(true);
+    setOpenQuizMenuId(null);
+  };
+
+  const confirmDeleteQuiz = async () => {
+    if (quizToDelete) {
+      try {
+        setLoading(true);
+        await quizService.deleteQuiz(quizToDelete.quizzId);
+
+        toast.success("Xóa quiz thành công!");
+        setShowDeleteQuizModal(false);
+        setQuizToDelete(null);
+
+        // Refresh quiz list
+        if (selectedFolder) {
+          await fetchFolderDetail(selectedFolder);
+        }
+      } catch (error: any) {
+        console.error("Error deleting quiz:", error);
+        const errorMessage =
+          error.response?.data?.message || "Không thể xóa quiz";
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   // Recursive function to render folder tree
   const renderFolderTree = (
     folderList: FolderType[],
@@ -446,6 +497,312 @@ export default function TeacherFolders() {
         </div>
       );
     });
+  };
+
+  const renderFolderCard = (folder: FolderType) => {
+    const quizCount = countQuizzes(folder);
+    if (viewMode === "grid") {
+      return (
+        <div
+          key={folder.folderId}
+          className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white relative"
+        >
+          <div
+            className="h-28 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 flex items-center justify-center relative cursor-pointer"
+            onClick={() => setSelectedFolder(folder.folderId)}
+          >
+            <Folder className="w-14 h-14 text-blue-500 opacity-80" />
+            <div className="absolute top-3 right-3">
+              <button
+                className="p-2 bg-white/80 backdrop-blur-sm rounded-lg hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMenu(folder.folderId, e);
+                }}
+              >
+                <MoreVertical className="w-4 h-4 text-secondary-600" />
+              </button>
+              {openMenuId === folder.folderId && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteFolder(folder);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Xóa thư mục
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div
+            className="p-4 cursor-pointer"
+            onClick={() => setSelectedFolder(folder.folderId)}
+          >
+            <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
+              {folder.folderName}
+            </h3>
+            <p className="text-sm text-secondary-600 mb-3">{quizCount} quiz</p>
+          </div>
+          <div className="px-4 pb-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditFolder(folder);
+              }}
+            >
+              <Edit className="w-3 h-3 mr-1" />
+              Sửa
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={folder.folderId}
+        className="relative rounded-xl border border-secondary-200 bg-white px-4 py-3 flex flex-col gap-3 hover:shadow-md transition-all cursor-pointer"
+        onClick={() => setSelectedFolder(folder.folderId)}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+              <Folder className="w-5 h-5 text-blue-500" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-secondary-900 truncate">
+                {folder.folderName}
+              </h3>
+              <p className="text-xs text-secondary-600">{quizCount} quiz</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMenu(folder.folderId, e);
+              }}
+            >
+              <MoreVertical className="w-4 h-4 text-secondary-600" />
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEditFolder(folder);
+            }}
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Sửa
+          </Button>
+        </div>
+        {openMenuId === folder.folderId && (
+          <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+            <button
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteFolder(folder);
+              }}
+            >
+              <Trash2 className="w-4 h-4" />
+              Xóa thư mục
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderQuizCard = (quiz: Quiz) => {
+    const resolveAvatarUrl = (raw?: string) => {
+      if (!raw) return "";
+      let s = String(raw).trim().replace(/\\/g, "/");
+      // If starts with '/http' or multiple slashes then http, strip leading slashes
+      if (/^\/+https?:\/\//i.test(s)) s = s.replace(/^\/+/, "");
+      // Absolute URL
+      if (/^https?:\/\//i.test(s)) return s;
+      // Relative path
+      s = s.replace(/^\/+/, "");
+      const root =
+        (import.meta as any).env.VITE_SOCKET_URL ||
+        ((import.meta as any).env.VITE_API_BASE_URL
+          ? (import.meta as any).env.VITE_API_BASE_URL.replace(/\/api\/?$/, "")
+          : "");
+      return root ? `${root}/${s}` : `/${s}`;
+    };
+    const avatarUrl = resolveAvatarUrl(quiz.avatarURL);
+
+    if (viewMode === "grid") {
+      return (
+        <div
+          key={quiz.quizzId}
+          className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white cursor-pointer"
+          onClick={() => navigate(`/quiz/preview/${quiz.quizzId}`)}
+        >
+          <div className="h-28 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center relative">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none rounded-t-2xl"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            ) : (
+              <BookOpen className="w-16 h-16 text-white opacity-80" />
+            )}
+            <div className="absolute top-3 right-3">
+              <button
+                className="p-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-colors opacity-0 group-hover:opacity-100"
+                onClick={(e) => toggleQuizMenu(quiz.quizzId, e)}
+              >
+                <MoreVertical className="w-4 h-4 text-white" />
+              </button>
+              {openQuizMenuId === quiz.quizzId && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    onClick={(e) => handleDeleteQuiz(quiz, e)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Xóa quiz
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="p-3">
+            <h3 className="font-bold text-secondary-900 mb-1 line-clamp-1 group-hover:text-primary-600 transition-colors">
+              {quiz.title}
+            </h3>
+            <p className="text-xs text-secondary-600 mb-2 line-clamp-1">
+              {quiz.topicName}
+            </p>
+            <div className="flex items-center justify-between text-xs text-secondary-500">
+              <span>{quiz.totalQuestion} câu hỏi</span>
+              <span>{quiz.totalParticipants} lượt chơi</span>
+            </div>
+          </div>
+          <div className="px-3 pb-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/quiz/preview/${quiz.quizzId}`);
+              }}
+            >
+              <Play className="w-3 h-3 mr-1" />
+              Chơi
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/quiz/edit/${quiz.quizzId}`);
+              }}
+            >
+              <Edit className="w-3 h-3 mr-1" />
+              Sửa
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={quiz.quizzId}
+        className="relative rounded-xl border border-secondary-200 bg-white px-4 py-3 flex items-center justify-between gap-4 hover:shadow-md transition-all cursor-pointer"
+        onClick={() => navigate(`/quiz/preview/${quiz.quizzId}`)}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 overflow-hidden flex items-center justify-center">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                className="w-full h-full object-cover pointer-events-none select-none"
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                onError={(e) => (e.currentTarget.style.display = "none")}
+              />
+            ) : (
+              <BookOpen className="w-6 h-6 text-white" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className="font-semibold text-secondary-900 truncate">
+              {quiz.title}
+            </h3>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500">
+              <span>{quiz.topicName}</span>
+              <span>•</span>
+              <span>{quiz.totalQuestion} câu hỏi</span>
+              <span>•</span>
+              <span>{quiz.totalParticipants} lượt chơi</span>
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/quiz/preview/${quiz.quizzId}`);
+            }}
+          >
+            <Play className="w-3 h-3 mr-1" />
+            Chơi
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/quiz/edit/${quiz.quizzId}`);
+            }}
+          >
+            <Edit className="w-3 h-3 mr-1" />
+            Sửa
+          </Button>
+          <button
+            className="p-2 hover:bg-secondary-100 rounded-lg transition-colors"
+            onClick={(e) => toggleQuizMenu(quiz.quizzId, e)}
+          >
+            <MoreVertical className="w-4 h-4 text-secondary-600" />
+          </button>
+        </div>
+        {openQuizMenuId === quiz.quizzId && (
+          <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+            <button
+              className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              onClick={(e) => handleDeleteQuiz(quiz, e)}
+            >
+              <Trash2 className="w-4 h-4" />
+              Xóa quiz
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -571,8 +928,37 @@ export default function TeacherFolders() {
           {/* Main Content */}
           <div className="space-y-6">
             {/* Action Bar */}
-            <div className="flex justify-end items-center">
-              <div className="flex gap-2">
+            <div className="flex justify-between items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 order-1 sm:order-2">
+                <span className="text-sm text-secondary-500">
+                  Chế độ hiển thị:
+                </span>
+                <div className="flex rounded-lg border border-secondary-200 overflow-hidden">
+                  <button
+                    className={`px-3 py-2 flex items-center gap-1 text-sm transition-colors ${
+                      viewMode === "grid"
+                        ? "bg-primary-600 text-white"
+                        : "text-secondary-600 hover:bg-secondary-100"
+                    }`}
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    Lưới
+                  </button>
+                  <button
+                    className={`px-3 py-2 flex items-center gap-1 text-sm transition-colors border-l border-secondary-200 ${
+                      viewMode === "list"
+                        ? "bg-primary-600 text-white"
+                        : "text-secondary-600 hover:bg-secondary-100"
+                    }`}
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="w-4 h-4" />
+                    Danh sách
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-2 order-2 sm:order-1">
                 {/* Show Create Subfolder button only when not at root */}
                 {selectedFolder !== null && (
                   <Button
@@ -642,157 +1028,23 @@ export default function TeacherFolders() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div
+                className={
+                  viewMode === "grid"
+                    ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
+                    : "space-y-3"
+                }
+              >
                 {/* Show Folders (subfolders of selected folder or root folders) */}
                 {showFolders &&
                   (selectedFolder === null
                     ? rootFolders
                     : currentSubfolders
-                  ).map((folder) => (
-                    <div
-                      key={folder.folderId}
-                      className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white relative"
-                    >
-                      {/* Folder Cover - Clickable area */}
-                      <div
-                        className="h-40 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 flex items-center justify-center relative cursor-pointer"
-                        onClick={() => setSelectedFolder(folder.folderId)}
-                      >
-                        <Folder className="w-20 h-20 text-blue-500 opacity-80" />
-
-                        {/* 3-dot Menu Button */}
-                        <div className="absolute top-3 right-3">
-                          <button
-                            className="p-2 bg-white/80 backdrop-blur-sm rounded-lg hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleMenu(folder.folderId, e);
-                            }}
-                          >
-                            <MoreVertical className="w-4 h-4 text-secondary-600" />
-                          </button>
-
-                          {/* Dropdown Menu */}
-                          {openMenuId === folder.folderId && (
-                            <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
-                              <button
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteFolder(folder);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Xóa thư mục
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Folder Info - Clickable area */}
-                      <div
-                        className="p-4 cursor-pointer"
-                        onClick={() => setSelectedFolder(folder.folderId)}
-                      >
-                        <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
-                          {folder.folderName}
-                        </h3>
-                        <p className="text-sm text-secondary-600 mb-3">
-                          {countQuizzes(folder)} quiz
-                        </p>
-                      </div>
-
-                      {/* Quick Actions */}
-                      <div className="px-4 pb-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditFolder(folder);
-                          }}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Sửa
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                  ).map((folder) => renderFolderCard(folder))}
 
                 {/* Show Quizzes when a specific folder is selected */}
                 {showQuizzes &&
-                  filteredQuizzes.map((quiz) => (
-                    <div
-                      key={quiz.quizzId}
-                      className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white cursor-pointer"
-                      onClick={() => navigate(`/quiz/preview/${quiz.quizzId}`)}
-                    >
-                      {/* Quiz Cover */}
-                      <div className="h-40 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center relative">
-                        {quiz.avatarURL ? (
-                          <img
-                            src={quiz.avatarURL}
-                            alt={quiz.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <BookOpen className="w-16 h-16 text-white opacity-80" />
-                        )}
-                        <div className="absolute top-3 right-3">
-                          <button
-                            className="p-2 bg-white/20 backdrop-blur-sm rounded-lg hover:bg-white/30 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                          >
-                            <MoreVertical className="w-4 h-4 text-white" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Quiz Info */}
-                      <div className="p-4">
-                        <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
-                          {quiz.title}
-                        </h3>
-                        <p className="text-sm text-secondary-600 mb-3">
-                          {quiz.topicName}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-secondary-500">
-                          <span>{quiz.totalQuestion} câu hỏi</span>
-                          <span>{quiz.totalParticipants} lượt chơi</span>
-                        </div>
-                      </div>
-
-                      {/* Quick Actions */}
-                      <div className="px-4 pb-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button
-                          size="sm"
-                          className="flex-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/quiz/preview/${quiz.quizzId}`);
-                          }}
-                        >
-                          <Play className="w-3 h-3 mr-1" />
-                          Chơi
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/quiz/edit/${quiz.quizzId}`);
-                          }}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Sửa
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                  filteredQuizzes.map((quiz) => renderQuizCard(quiz))}
               </div>
             )}
           </div>
@@ -896,6 +1148,57 @@ export default function TeacherFolders() {
                 </>
               ) : (
                 "Xóa thư mục"
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Quiz Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteQuizModal}
+        onClose={() => {
+          setShowDeleteQuizModal(false);
+          setQuizToDelete(null);
+        }}
+        title="Xác nhận xóa quiz"
+      >
+        <div className="space-y-4">
+          <p className="text-secondary-700">
+            Bạn có chắc chắn muốn xóa quiz{" "}
+            <span className="font-semibold text-secondary-900">
+              "{quizToDelete?.title}"
+            </span>
+            ?
+          </p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">
+              ⚠️ Hành động này không thể hoàn tác. Quiz sẽ bị xóa vĩnh viễn.
+            </p>
+          </div>
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteQuizModal(false);
+                setQuizToDelete(null);
+              }}
+              disabled={loading}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={confirmDeleteQuiz}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                "Xóa quiz"
               )}
             </Button>
           </div>

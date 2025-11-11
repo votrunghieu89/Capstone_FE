@@ -460,11 +460,11 @@ export default function StudentClasses() {
                       Quiz đã giao
                     </h3>
                     <div className="flex flex-col min-h-[60vh]">
-                      {detailQuizzes.length === 0 ? (
-                        <p className="text-sm text-secondary-500 text-center py-8">
-                          Chưa có quiz nào được giao
-                        </p>
-                      ) : (
+                    {detailQuizzes.length === 0 ? (
+                      <p className="text-sm text-secondary-500 text-center py-8">
+                        Chưa có quiz nào được giao
+                      </p>
+                    ) : (
                         <div className="space-y-3 flex-1">
                           {detailQuizzes
                             .slice(
@@ -485,13 +485,13 @@ export default function StudentClasses() {
                                   <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                       <h4 className="font-semibold text-secondary-900 leading-tight truncate">
-                                        {quiz.title}
-                                      </h4>
-                                      {quiz.message && (
+                                    {quiz.title}
+                                  </h4>
+                                  {quiz.message && (
                                         <p className="text-sm text-secondary-600 line-clamp-1">
-                                          {quiz.message}
-                                        </p>
-                                      )}
+                                      {quiz.message}
+                                    </p>
+                                  )}
                                     </div>
                                     <Button
                                       size="sm"
@@ -517,30 +517,30 @@ export default function StudentClasses() {
                                         quiz.dateCreated
                                       ).toLocaleDateString("vi-VN")}
                                     </span>
-                                    {quiz.expiredDate && (
+                                  {quiz.expiredDate && (
                                       <span className="flex items-center gap-1 text-error-600">
                                         <Calendar className="w-3 h-3" />
-                                        Hết hạn:{" "}
-                                        {new Date(
-                                          quiz.expiredDate
-                                        ).toLocaleDateString("vi-VN")}
+                                      Hết hạn:{" "}
+                                      {new Date(
+                                        quiz.expiredDate
+                                      ).toLocaleDateString("vi-VN")}
                                       </span>
-                                    )}
-                                    {quiz.maxAttempts !== undefined &&
-                                      quiz.maxAttempts !== null && (
+                                  )}
+                                  {quiz.maxAttempts !== undefined &&
+                                    quiz.maxAttempts !== null && (
                                         <span className="flex items-center gap-1">
                                           <RotateCcw className="w-3 h-3" />
-                                          Số lần làm: {quiz.maxAttempts || 0}
+                                        Số lần làm: {quiz.maxAttempts || 0}
                                         </span>
                                       )}
-                                  </div>
+                                      </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          ))}
-                        </div>
-                      )}
+                        ))}
+                      </div>
+                    )}
 
                       {detailQuizzes.length > detailQuizzesPerPage && (
                         <div className="mt-6 py-3 flex items-center justify-center gap-2">

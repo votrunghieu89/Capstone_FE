@@ -6,7 +6,7 @@ class ApiClient {
   constructor() {
     this.client = axios.create({
       baseURL: "https://localhost:7126/api", // BE đang chạy HTTP
-      timeout: 10000,
+      timeout: 30000, // Tăng timeout lên 30 giây
       headers: {
         "Content-Type": "application/json",
       },
@@ -39,6 +39,22 @@ class ApiClient {
         return response;
       },
       async (error) => {
+        // Log detailed error information
+        if (error.code === "ECONNABORTED") {
+          console.error("Request timeout:", error.config?.url);
+        } else if (error.code === "ERR_NETWORK") {
+          console.error(
+            "Network error - Backend may not be running:",
+            error.config?.url
+          );
+        } else if (error.response) {
+          console.error(
+            "Response error:",
+            error.response.status,
+            error.config?.url
+          );
+        }
+
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {

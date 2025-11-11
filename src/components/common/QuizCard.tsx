@@ -26,13 +26,43 @@ export const QuizCard: React.FC<QuizCardProps> = ({
 }) => {
   return (
     <div className="card overflow-hidden h-full flex flex-col">
-      <div className="bg-secondary-200 aspect-[16/9]">
-        {thumbnailUrl && (
+      <div className="bg-secondary-200 aspect-[16/9] relative overflow-hidden">
+        {thumbnailUrl && thumbnailUrl.trim() !== "" ? (
           <img
             src={thumbnailUrl}
             alt={title}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              // Show placeholder on error
+              e.currentTarget.style.display = "none";
+              const parent = e.currentTarget.parentElement;
+              if (parent && !parent.querySelector(".placeholder-icon")) {
+                const placeholder = document.createElement("div");
+                placeholder.className =
+                  "placeholder-icon absolute inset-0 flex items-center justify-center bg-secondary-100";
+                placeholder.innerHTML = `
+                  <svg class="w-12 h-12 text-secondary-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                  </svg>
+                `;
+                parent.appendChild(placeholder);
+              }
+            }}
           />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-secondary-100">
+            <svg
+              className="w-12 h-12 text-secondary-400"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
         )}
       </div>
       <div className="card-content flex flex-col grow">

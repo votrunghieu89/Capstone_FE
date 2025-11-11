@@ -28,6 +28,7 @@ export default function Landing() {
     "Địa lý",
   ];
 
+  // Mock data - sẽ thay bằng API khi có quiz public
   const quizzes = [
     {
       id: "q1",

@@ -1,90 +1,254 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, Eye, Heart } from "lucide-react";
-import { Button } from "../../../components/common/Button";
+import { Heart } from "lucide-react";
 import { QuizCard } from "../../../components/common/QuizCard";
 import { TopNavbar } from "../../../components/layout/TopNavbar";
 import { Footer } from "../../../components/layout/Footer";
-
-interface FavouriteQuiz {
-  id: string;
-  title: string;
-  description: string;
-  topic: string;
-  difficulty: "Easy" | "Medium" | "Hard";
-  numberOfPlays: number;
-  rating: number;
-  estimatedTime: number;
-  addedAt: string;
-  author: string;
-}
+import { storage } from "../../../libs/storage";
+import {
+  favouriteService,
+  FavouriteQuizDTO,
+} from "../../../services/favouriteService";
+import { toast } from "react-hot-toast";
+import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
 
 export default function FavouriteQuizzes() {
   const navigate = useNavigate();
+  const currentUser = storage.getUser();
+
   const [selectedTopic, setSelectedTopic] = useState("all");
+  const [favouriteQuizzes, setFavouriteQuizzes] = useState<FavouriteQuizDTO[]>(
+    []
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [pendingRemoveQuizId, setPendingRemoveQuizId] = useState<number | null>(
+    null
+  );
 
-  // Mock data - sẽ thay thế bằng API call thực tế
-  const favouriteQuizzes: FavouriteQuiz[] = [
-    {
-      id: "1",
-      title: "Kiểm tra Toán học lớp 10",
-      description: "Bài kiểm tra về đại số và hình học cơ bản",
-      topic: "Toán học",
-      difficulty: "Medium",
-      numberOfPlays: 1247,
-      rating: 4.8,
-      estimatedTime: 30,
-      addedAt: "2024-10-01",
-      author: "Nguyễn Văn Giáo viên",
-    },
-    {
-      id: "2",
-      title: "Quiz Vật lý - Điện học",
-      description: "Câu hỏi về dòng điện và từ trường",
-      topic: "Vật lý",
-      difficulty: "Hard",
-      numberOfPlays: 892,
-      rating: 4.6,
-      estimatedTime: 45,
-      addedAt: "2024-09-28",
-      author: "Trần Thị Giáo viên",
-    },
-    {
-      id: "3",
-      title: "Lịch sử Việt Nam",
-      description: "Các sự kiện lịch sử quan trọng",
-      topic: "Lịch sử",
-      difficulty: "Easy",
-      numberOfPlays: 1567,
-      rating: 4.9,
-      estimatedTime: 20,
-      addedAt: "2024-09-25",
-      author: "Lê Văn Giáo viên",
-    },
-  ];
+  // Debug user data
+  console.log("=== Favourites Page ===");
+  console.log("Current User:", currentUser);
+  console.log("Has accountId:", currentUser?.accountId);
+  console.log("Has id:", currentUser?.id);
 
+  const didFetchRef = useRef(false);
+
+  // Fetch favourite quizzes from API
+  useEffect(() => {
+    if (didFetchRef.current) return;
+    didFetchRef.current = true;
+    const fetchFavouriteQuizzes = async () => {
+      const accountIdRaw = currentUser?.accountId || currentUser?.id;
+
+      // Convert to number if it's a string
+      const accountId =
+        typeof accountIdRaw === "string"
+          ? parseInt(accountIdRaw)
+          : accountIdRaw;
+
+      console.log(
+        "Trying to fetch with accountId:",
+        accountId,
+        "(type:",
+        typeof accountId,
+        ")"
+      );
+
+      if (!accountId || isNaN(accountId)) {
+        console.error("No valid accountId found!");
+        setError("Vui lòng đăng nhập để xem danh sách yêu thích");
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await favouriteService.getAllFavouriteQuizzes(accountId);
+
+        // Fix duplicate base URL issue and handle null/undefined
+        const fixedData = data.map((quiz) => {
+          let avatarURL = quiz.avatarURL || "";
+
+          // Fix duplicate base URL if exists
+          if (avatarURL) {
+            avatarURL = avatarURL.replace(
+              /^https?:\/\/[^\/]+\/https?:\/\//,
+              "https://"
+            );
+          }
+
+          return {
+            ...quiz,
+            avatarURL: avatarURL,
+          };
+        });
+
+        console.log("Favourite quizzes data:", fixedData);
+        console.log("Number of quizzes:", fixedData.length);
+        console.log(
+          "Topics:",
+          fixedData.map((q) => q.topicName)
+        );
+        setFavouriteQuizzes(fixedData);
+      } catch (err: any) {
+        console.error("Error fetching favourite quizzes:", err);
+        console.error("Error details:", err?.response?.data);
+
+        let errorMsg = "Không thể tải danh sách quiz yêu thích";
+
+        // Handle specific BE errors
+        if (err?.response?.status === 500) {
+          // BE null reference error - quiz has null AvatarURL
+          errorMsg =
+            "⚠️ Có quiz với dữ liệu không hợp lệ. Vui lòng liên hệ quản trị viên để kiểm tra dữ liệu.";
+          console.error(
+            "BE Error: Quiz with null AvatarURL detected. Need to fix data in database."
+          );
+        } else if (err?.message) {
+          errorMsg = err.message;
+        }
+
+        setError(errorMsg);
+        toast.error(errorMsg, { duration: 5000 });
+
+        // Set empty array on error so UI can still render
+        setFavouriteQuizzes([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFavouriteQuizzes();
+  }, [currentUser?.accountId]);
+
+  // Get unique topics from quizzes
   const topics = [
     "Tất cả",
-    "Toán học",
-    "Vật lý",
-    "Hóa học",
-    "Lịch sử",
-    "Địa lý",
-    "Văn học",
+    ...Array.from(new Set(favouriteQuizzes.map((q) => q.topicName))),
   ];
 
   const filteredQuizzes = favouriteQuizzes.filter((quiz) => {
     const matchesTopic =
-      selectedTopic === "all" || quiz.topic === selectedTopic;
+      selectedTopic === "all" || quiz.topicName === selectedTopic;
     return matchesTopic;
   });
 
-  // rút gọn hiển thị như card đơn giản
-
-  const handleRemoveFavourite = (quizId: string) => {
-    // TODO: Call remove favourite API
-    console.log("Remove favourite:", quizId);
+  const handleRemoveFavourite = (quizId: number) => {
+    setPendingRemoveQuizId(quizId);
+    setShowRemoveConfirm(true);
   };
+
+  const closeRemoveConfirm = () => {
+    setShowRemoveConfirm(false);
+    setPendingRemoveQuizId(null);
+  };
+
+  const confirmRemoveFavourite = () => {
+    if (pendingRemoveQuizId === null) return;
+    const quizId = pendingRemoveQuizId;
+
+    const accountIdRaw = currentUser?.accountId || currentUser?.id;
+    const accountId =
+      typeof accountIdRaw === "string" ? parseInt(accountIdRaw) : accountIdRaw;
+
+    if (!accountId || isNaN(accountId)) {
+      toast.error("Vui lòng đăng nhập để sử dụng chức năng này");
+      return;
+    }
+
+    // Lưu danh sách cũ để có thể rollback nếu cần
+    const previousQuizzes = favouriteQuizzes;
+
+    try {
+      // Tạm thời xóa khỏi UI (optimistic update)
+      setFavouriteQuizzes((prev) => prev.filter((q) => q.quizId !== quizId));
+
+      toast.success("Đã xóa khỏi danh sách yêu thích");
+
+      // TODO: Khi BE thêm endpoint removeFavouriteQuizByAccountAndQuiz
+      // await favouriteService.removeFavouriteQuizByAccountAndQuiz(
+      //   accountId,
+      //   quizId
+      // );
+    } catch (err: any) {
+      console.error("Error removing favourite:", err);
+      // Rollback nếu có lỗi
+      const errorMsg = err?.message || "Không thể xóa quiz khỏi yêu thích";
+      toast.error(errorMsg);
+
+      setFavouriteQuizzes(previousQuizzes);
+    }
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-secondary-50 flex flex-col">
+        <TopNavbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-secondary-600">
+              Đang tải danh sách yêu thích...
+            </p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Show error or not logged in
+  if (error) {
+    const isLoginError = error.includes("đăng nhập");
+
+    return (
+      <div className="min-h-screen bg-secondary-50 flex flex-col">
+        <TopNavbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md px-4">
+            {isLoginError ? (
+              <>
+                <Heart className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-secondary-900 mb-2">
+                  ⚠️ {error}
+                </h3>
+                <p className="text-secondary-600 mb-6">
+                  Bạn cần đăng nhập để xem danh sách quiz yêu thích
+                </p>
+                <button
+                  onClick={() => navigate("/auth/login")}
+                  className="btn-primary px-6 py-2"
+                >
+                  Đăng nhập ngay
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="text-6xl mb-4">⚠️</div>
+                <h3 className="text-lg font-medium text-secondary-900 mb-2">
+                  {error}
+                </h3>
+                <p className="text-secondary-600 mb-6">
+                  Đã xảy ra lỗi khi tải dữ liệu
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="btn-primary px-6 py-2"
+                >
+                  Thử lại
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-secondary-50 flex flex-col">
@@ -128,28 +292,29 @@ export default function FavouriteQuizzes() {
         </div>
 
         {/* Quiz Grid (simplified card) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredQuizzes.map((quiz) => (
-            <div key={quiz.id} className="relative">
-              <QuizCard
-                title={quiz.title}
-                topic={quiz.topic}
-                questionCount={18}
-                plays={quiz.numberOfPlays}
-                onDetail={() => navigate(`/quiz/preview/${quiz.id}`)}
-              />
-              <button
-                className="absolute top-3 right-3 text-error-600 hover:text-error-700"
-                onClick={() => handleRemoveFavourite(quiz.id)}
-                title="Bỏ yêu thích"
-              >
-                <Heart className="w-5 h-5 fill-current" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {filteredQuizzes.length === 0 && (
+        {filteredQuizzes.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredQuizzes.map((quiz) => (
+              <div key={quiz.quizId} className="relative">
+                <QuizCard
+                  thumbnailUrl={quiz.avatarURL}
+                  title={quiz.title}
+                  topic={quiz.topicName}
+                  questionCount={quiz.totalQuestions}
+                  plays={quiz.totalParticipants}
+                  onDetail={() => navigate(`/quiz/preview/${quiz.quizId}`)}
+                />
+                <button
+                  className="absolute top-3 right-3 text-error-600 hover:text-error-700"
+                  onClick={() => handleRemoveFavourite(quiz.quizId)}
+                  title="Bỏ yêu thích"
+                >
+                  <Heart className="w-5 h-5 fill-current" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
           <div className="text-center py-12">
             <Heart className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
@@ -158,14 +323,28 @@ export default function FavouriteQuizzes() {
             <p className="text-secondary-600 mb-6">
               Thêm quiz vào yêu thích để dễ dàng truy cập sau này
             </p>
-            <Button>
-              <BookOpen className="w-4 h-4 mr-2" />
+            <button
+              onClick={() => navigate("/browse")}
+              className="btn-primary px-6 py-2 inline-flex items-center"
+            >
+              <Heart className="w-4 h-4 mr-2" />
               Khám phá Quiz
-            </Button>
+            </button>
           </div>
         )}
       </div>
       <Footer />
+
+      <ConfirmDialog
+        isOpen={showRemoveConfirm}
+        onClose={closeRemoveConfirm}
+        onConfirm={confirmRemoveFavourite}
+        title="Bỏ quiz khỏi yêu thích"
+        message="Bạn có chắc muốn xóa quiz này khỏi danh sách yêu thích?"
+        confirmText="Xóa"
+        cancelText="Hủy"
+        confirmVariant="destructive"
+      />
     </div>
   );
 }
