@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -18,6 +18,7 @@ import {
   Play,
   RotateCcw,
   ArrowLeft,
+  X,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
@@ -72,6 +73,16 @@ export default function TeacherClasses() {
   const itemsPerPage = 12; // 12 lớp mỗi trang (4 hàng x 3 cột)
   const [detailStudents, setDetailStudents] = useState<any[]>([]);
   const [detailQuizzes, setDetailQuizzes] = useState<any[]>([]);
+  const [detailQuizPage, setDetailQuizPage] = useState(1);
+  const detailQuizzesPerPage = 6;
+  const pagedDetailQuizzes = useMemo(
+    () =>
+      detailQuizzes.slice(
+        (detailQuizPage - 1) * detailQuizzesPerPage,
+        detailQuizPage * detailQuizzesPerPage
+      ),
+    [detailQuizzes, detailQuizPage]
+  );
   const [activeTab, setActiveTab] = useState<"activity" | "students">(
     "activity"
   );
@@ -84,7 +95,12 @@ export default function TeacherClasses() {
     useState(false);
   const [studentToDelete, setStudentToDelete] = useState<number | null>(null);
   const [showDeleteQuizConfirm, setShowDeleteQuizConfirm] = useState(false);
-  const [quizToDelete, setQuizToDelete] = useState<number | null>(null);
+  const [quizToDelete, setQuizToDelete] = useState<{
+    qgId: number;
+    quizId: number;
+  } | null>(null);
+  const [studentSearchQuery, setStudentSearchQuery] = useState("");
+  const [isSearchingStudents, setIsSearchingStudents] = useState(false);
 
   const getTeacherId = () => {
     const token = localStorage.getItem("access_token");
@@ -269,6 +285,7 @@ export default function TeacherClasses() {
       ]);
       setDetailStudents(students);
       setDetailQuizzes(detail.quizzes);
+      setDetailQuizPage(1);
 
       // Add to recent classes
       setRecentClasses((prev) => {
@@ -392,9 +409,9 @@ export default function TeacherClasses() {
     }
   };
 
-  const handleRemoveQuiz = (quizId: number) => {
+  const handleRemoveQuiz = (qgId: number, quizId: number) => {
     if (!selectedClass) return;
-    setQuizToDelete(quizId);
+    setQuizToDelete({ qgId, quizId });
     setShowDeleteQuizConfirm(true);
   };
 
@@ -403,8 +420,9 @@ export default function TeacherClasses() {
 
     try {
       await groupService.removeQuizFromGroup(
+        quizToDelete.qgId,
         selectedClass.groupId,
-        quizToDelete
+        quizToDelete.quizId
       );
       toast.success("Xóa quiz thành công");
       handleViewDetail(selectedClass);
@@ -416,11 +434,50 @@ export default function TeacherClasses() {
     }
   };
 
+  const handleSearchStudents = async (query: string) => {
+    if (!selectedClass) return;
+
+    setStudentSearchQuery(query);
+
+    if (!query.trim()) {
+      await handleViewDetail(selectedClass);
+      return;
+    }
+
+    setIsSearchingStudents(true);
+    try {
+      // Send query as-is, backend will normalize
+      const results = await groupService.searchParticipantInGroup(
+        query.trim(),
+        selectedClass.groupId
+      );
+      const mappedResults = results.map((p: any) => ({
+        studentId: p.studentId,
+        fullName: p.fullName,
+        email: p.email,
+        idUnique: p.idUnique || "",
+        avatarURL: p.avatar || "",
+        dateJoined: p.dateJoined || "",
+        permission: p.permission || "Student",
+      }));
+      setDetailStudents(mappedResults);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        setDetailStudents([]);
+      } else {
+        toast.error("Không thể tìm kiếm học sinh");
+      }
+    } finally {
+      setIsSearchingStudents(false);
+    }
+  };
+
   useEffect(() => {
     fetchGroups();
 
-    // Load recent classes from localStorage
-    const savedRecent = localStorage.getItem("recentClasses");
+    // Load recent classes from localStorage with teacherId
+    const teacherId = getTeacherId();
+    const savedRecent = localStorage.getItem(`recentClasses_${teacherId}`);
     if (savedRecent) {
       try {
         setRecentClasses(JSON.parse(savedRecent));
@@ -432,8 +489,12 @@ export default function TeacherClasses() {
 
   // Save recent classes to localStorage when it changes
   useEffect(() => {
+    const teacherId = getTeacherId();
     if (recentClasses.length > 0) {
-      localStorage.setItem("recentClasses", JSON.stringify(recentClasses));
+      localStorage.setItem(
+        `recentClasses_${teacherId}`,
+        JSON.stringify(recentClasses)
+      );
     }
   }, [recentClasses]);
 
@@ -783,7 +844,7 @@ export default function TeacherClasses() {
                 {/* Tab Content */}
                 <div className="mt-6">
                   {activeTab === "activity" && (
-                    <div>
+                    <div className="flex flex-col min-h-[60vh]">
                       {/* Two columns: Invite & Assign */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         {/* Mời thành viên */}
@@ -821,33 +882,60 @@ export default function TeacherClasses() {
                       </div>
 
                       {/* Activity List */}
-                      {detailQuizzes.length === 0 &&
-                      detailStudents.length === 0 ? (
-                        <div className="text-center py-12">
-                          <p className="text-secondary-500 text-sm">
-                            Chưa có hoạt động nào trong nhóm này – hãy bắt đầu
-                            bằng cách tạo nội dung.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* Quiz Activities */}
-                          {detailQuizzes.map((quiz: any) => (
-                            <div key={quiz.qgId} className="card">
-                              <div className="card-content">
-                                <div>
+                      <div className="flex-1">
+                        {detailQuizzes.length === 0 &&
+                        detailStudents.length === 0 ? (
+                          <div className="text-center py-12">
+                            <p className="text-secondary-500 text-sm">
+                              Chưa có hoạt động nào trong nhóm này – hãy bắt đầu
+                              bằng cách tạo nội dung.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Quiz Activities - 2 cards per row on md+ */}
+                            {pagedDetailQuizzes.map((quiz: any) => (
+                              <div key={quiz.qgId} className="card">
+                                <div className="card-content relative">
+                                  {/* Delete icon at top-right */}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="absolute top-2 right-2 text-error-600 hover:bg-error-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const quizId =
+                                        quiz.quizId ||
+                                        quiz.deliveredQuiz?.quizId;
+                                      if (quizId && quiz.qgId) {
+                                        handleRemoveQuiz(quiz.qgId, quizId);
+                                      } else {
+                                        toast.error(
+                                          "Không tìm thấy ID của quiz"
+                                        );
+                                        console.error("Quiz data:", quiz);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
                                   {/* Top section: Icon + Content */}
                                   <div className="flex gap-4 mb-3">
                                     {/* Icon */}
                                     <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center flex-shrink-0">
                                       <BookOpen className="w-6 h-6 text-success-600" />
                                     </div>
-
                                     {/* Content */}
                                     <div className="flex-1 min-w-0">
                                       <h4 className="font-semibold text-secondary-900 text-base mb-1">
                                         {quiz.title}
                                       </h4>
+                                      {quiz.message && (
+                                        <p className="text-sm text-secondary-600 mb-2 line-clamp-2">
+                                          {quiz.message}
+                                        </p>
+                                      )}
                                       <div className="flex items-center gap-3 text-sm text-secondary-600 mb-2">
                                         <span>
                                           Giáo Viên: {quiz.teacherName}
@@ -870,29 +958,29 @@ export default function TeacherClasses() {
                                             ).toLocaleDateString("vi-VN")}
                                           </span>
                                         )}
-                                        <span className="text-secondary-600 flex items-center gap-1.5">
-                                          <RotateCcw className="w-3.5 h-3.5" />
-                                          Số lần làm: {quiz.maxAttempts || 0}
-                                        </span>
+                                        {quiz.maxAttempts !== undefined &&
+                                          quiz.maxAttempts !== null && (
+                                            <span className="text-secondary-600 flex items-center gap-1.5">
+                                              <RotateCcw className="w-3.5 h-3.5" />
+                                              Số lần làm:{" "}
+                                              {quiz.maxAttempts || 0}
+                                            </span>
+                                          )}
                                       </div>
                                     </div>
                                   </div>
-
                                   {/* Bottom section: Actions */}
-                                  <div className="flex justify-end gap-2">
+                                  <div className="flex justify-center gap-2">
                                     <Button
                                       size="sm"
                                       className="min-w-[140px]"
                                       onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
-
-                                        // Lấy quizId từ quiz.quizId hoặc quiz.deliveredQuiz?.quizId
                                         const quizId =
                                           quiz.quizId ||
                                           quiz.deliveredQuiz?.quizId;
                                         const classId = selectedClass?.groupId;
-
                                         if (!quizId || !classId) {
                                           toast.error(
                                             "Không tìm thấy ID của quiz hoặc lớp học"
@@ -905,44 +993,77 @@ export default function TeacherClasses() {
                                           );
                                           return;
                                         }
-
-                                        // Navigate đến preview page với classId
                                         const url = `/quiz/preview/${quizId}?classId=${classId}`;
-                                        console.log("Navigating to:", url);
                                         window.location.href = url;
                                       }}
                                     >
                                       <Play className="w-4 h-4 mr-1.5" />
                                       Bắt đầu làm bài
                                     </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-error-600 hover:bg-error-50"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        // Lấy quizId từ quiz.quizId hoặc quiz.deliveredQuiz?.quizId
-                                        const quizId =
-                                          quiz.quizId ||
-                                          quiz.deliveredQuiz?.quizId;
-                                        if (quizId) {
-                                          handleRemoveQuiz(quizId);
-                                        } else {
-                                          toast.error(
-                                            "Không tìm thấy ID của quiz"
-                                          );
-                                          console.error("Quiz data:", quiz);
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {detailQuizzes.length > detailQuizzesPerPage && (
+                        <div className="mt-6 py-3 flex items-center justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setDetailQuizPage((p) => Math.max(1, p - 1))
+                            }
+                            disabled={detailQuizPage === 1}
+                          >
+                            Trước
+                          </Button>
+                          <div className="flex items-center gap-1">
+                            {Array.from(
+                              {
+                                length: Math.ceil(
+                                  detailQuizzes.length / detailQuizzesPerPage
+                                ),
+                              },
+                              (_, i) => i + 1
+                            ).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setDetailQuizPage(page)}
+                                className={`min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-colors ${
+                                  detailQuizPage === page
+                                    ? "bg-primary-600 text-white"
+                                    : "bg-secondary-100 text-secondary-700 hover:bg-secondary-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setDetailQuizPage((p) =>
+                                Math.min(
+                                  Math.ceil(
+                                    detailQuizzes.length / detailQuizzesPerPage
+                                  ),
+                                  p + 1
+                                )
+                              )
+                            }
+                            disabled={
+                              detailQuizPage ===
+                              Math.ceil(
+                                detailQuizzes.length / detailQuizzesPerPage
+                              )
+                            }
+                          >
+                            Sau
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -991,12 +1112,28 @@ export default function TeacherClasses() {
                       </div>
 
                       <div className="mt-6">
-                        <h3 className="font-semibold mb-4">
-                          Danh sách học sinh
-                        </h3>
-                        {detailStudents.length === 0 ? (
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold">Danh sách học sinh</h3>
+                          <div className="w-64">
+                            <Input
+                              type="text"
+                              placeholder="Tìm kiếm học sinh..."
+                              value={studentSearchQuery}
+                              onChange={(e) =>
+                                handleSearchStudents(e.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                        {isSearchingStudents ? (
+                          <div className="flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-primary-600" />
+                          </div>
+                        ) : detailStudents.length === 0 ? (
                           <p className="text-sm text-secondary-500 text-center py-8">
-                            Chưa có học sinh nào
+                            {studentSearchQuery.trim()
+                              ? "Không tìm thấy học sinh nào"
+                              : "Chưa có học sinh nào"}
                           </p>
                         ) : (
                           <div className="space-y-2">
@@ -1389,7 +1526,7 @@ export default function TeacherClasses() {
 
             {/* Quiz info - Show selected quiz */}
             {selectedQuizId && (
-              <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+              <div className="bg-success-50 border border-success-200 rounded-lg p-3 flex items-center justify-between">
                 <p className="text-sm font-medium text-success-900">
                   ✓ Đã chọn quiz:{" "}
                   {
@@ -1397,6 +1534,14 @@ export default function TeacherClasses() {
                       ?.title
                   }
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuizId(null)}
+                  className="text-success-600 hover:text-success-700 hover:bg-success-100 rounded p-1 transition-colors"
+                  title="Bỏ chọn quiz"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             )}
 

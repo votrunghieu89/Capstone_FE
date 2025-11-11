@@ -18,6 +18,16 @@ export interface ViewStudentDTO {
   permission: string;
 }
 
+export interface ParticipantDTO {
+  studentId: number;
+  fullName: string;
+  email: string;
+  avatar?: string;
+  dateJoined?: string;
+  permission?: string;
+  idUnique?: string;
+}
+
 export interface ViewQuizDTO {
   qgId: number;
   quizId: number;
@@ -179,14 +189,15 @@ class GroupService {
 
   /**
    * Remove quiz from group
-   * DELETE /api/Group/RemoveQuizFromGroup/{groupId}/{quizId}
+   * DELETE /api/Group/RemoveQuizFromGroup/{QgID}/{groupId}/{quizId}
    */
   async removeQuizFromGroup(
+    qgId: number,
     groupId: number,
     quizId: number
   ): Promise<{ message: string }> {
     return apiClient.delete<{ message: string }>(
-      `${this.baseUrl}/RemoveQuizFromGroup/${groupId}/${quizId}`
+      `${this.baseUrl}/RemoveQuizFromGroup/${qgId}/${groupId}/${quizId}`
     );
   }
 
@@ -226,6 +237,21 @@ class GroupService {
   ): Promise<{ message: string }> {
     return apiClient.delete<{ message: string }>(
       `${this.baseUrl}/leaveGroup/${groupId}/${studentId}?teacherId=${teacherId}`
+    );
+  }
+
+  /**
+   * Search participants in a group by name
+   * GET /api/Search/searchParticipantInGroup?Name={name}&groupId={groupId}
+   */
+  async searchParticipantInGroup(
+    name: string,
+    groupId: number
+  ): Promise<ParticipantDTO[]> {
+    return apiClient.get<ParticipantDTO[]>(
+      `/Search/searchParticipantInGroup?Name=${encodeURIComponent(
+        name
+      )}&groupId=${groupId}`
     );
   }
 }

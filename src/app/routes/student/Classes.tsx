@@ -10,6 +10,7 @@ import {
   Copy,
   Hash,
   ArrowLeft,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
@@ -38,6 +39,8 @@ export default function StudentClasses() {
   const [joinCode, setJoinCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [detailQuizzes, setDetailQuizzes] = useState<ViewQuizDTO[]>([]);
+  const [detailQuizPage, setDetailQuizPage] = useState(1);
+  const detailQuizzesPerPage = 6;
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 15; // 5 rows x 3 columns
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -89,6 +92,7 @@ export default function StudentClasses() {
         idUnique: detail.idUnique,
       });
       setDetailQuizzes(detail.quizzes || []);
+      setDetailQuizPage(1);
     } catch (error: any) {
       console.warn(
         "Cannot fetch class detail, showing basic info:",
@@ -455,27 +459,56 @@ export default function StudentClasses() {
                     <h3 className="text-lg font-semibold text-secondary-900 mb-4">
                       Quiz đã giao
                     </h3>
-                    {detailQuizzes.length === 0 ? (
-                      <p className="text-sm text-secondary-500 text-center py-8">
-                        Chưa có quiz nào được giao
-                      </p>
-                    ) : (
-                      <div className="space-y-3">
-                        {detailQuizzes.map((quiz) => (
+                    <div className="flex flex-col min-h-[60vh]">
+                      {detailQuizzes.length === 0 ? (
+                        <p className="text-sm text-secondary-500 text-center py-8">
+                          Chưa có quiz nào được giao
+                        </p>
+                      ) : (
+                        <div className="space-y-3 flex-1">
+                          {detailQuizzes
+                            .slice(
+                              (detailQuizPage - 1) * detailQuizzesPerPage,
+                              detailQuizPage * detailQuizzesPerPage
+                            )
+                            .map((quiz) => (
                           <div
                             key={quiz.qgId}
                             className="card border border-secondary-200"
                           >
-                            <div className="card-content">
-                              <div className="flex items-center gap-4 mb-4">
-                                <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                                  <BookOpen className="w-6 h-6 text-primary-600" />
+                            <div className="card-content p-4">
+                              <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                  <BookOpen className="w-5 h-5 text-primary-600" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-secondary-900 mb-1">
-                                    {quiz.title}
-                                  </h4>
-                                  <div className="flex items-center gap-3 text-sm text-secondary-600 mb-2">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <h4 className="font-semibold text-secondary-900 leading-tight truncate">
+                                        {quiz.title}
+                                      </h4>
+                                      {quiz.message && (
+                                        <p className="text-sm text-secondary-600 line-clamp-1">
+                                          {quiz.message}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={() =>
+                                        handleStartQuiz(
+                                          quiz.deliveredQuiz?.quizId ||
+                                            quiz.quizId
+                                        )
+                                      }
+                                    >
+                                      <Play className="w-4 h-4 mr-2" />
+                                      Làm bài
+                                    </Button>
+                                  </div>
+
+                                  {/* Meta compact */}
+                                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
                                     <span>GV: {quiz.teacherName}</span>
                                     <span>•</span>
                                     <span>
@@ -484,37 +517,90 @@ export default function StudentClasses() {
                                         quiz.dateCreated
                                       ).toLocaleDateString("vi-VN")}
                                     </span>
+                                    {quiz.expiredDate && (
+                                      <span className="flex items-center gap-1 text-error-600">
+                                        <Calendar className="w-3 h-3" />
+                                        Hết hạn:{" "}
+                                        {new Date(
+                                          quiz.expiredDate
+                                        ).toLocaleDateString("vi-VN")}
+                                      </span>
+                                    )}
+                                    {quiz.maxAttempts !== undefined &&
+                                      quiz.maxAttempts !== null && (
+                                        <span className="flex items-center gap-1">
+                                          <RotateCcw className="w-3 h-3" />
+                                          Số lần làm: {quiz.maxAttempts || 0}
+                                        </span>
+                                      )}
                                   </div>
-                                  {quiz.expiredDate && (
-                                    <div className="flex items-center gap-1.5 text-xs text-error-600">
-                                      <Calendar className="w-3.5 h-3.5" />
-                                      Hết hạn:{" "}
-                                      {new Date(
-                                        quiz.expiredDate
-                                      ).toLocaleDateString("vi-VN")}
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                              {/* Button căn giữa */}
-                              <div className="flex justify-center">
-                                <Button
-                                  size="sm"
-                                  onClick={() =>
-                                    handleStartQuiz(
-                                      quiz.deliveredQuiz?.quizId || quiz.quizId
-                                    )
-                                  }
-                                >
-                                  <Play className="w-4 h-4 mr-2" />
-                                  Làm bài
-                                </Button>
                               </div>
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+
+                      {detailQuizzes.length > detailQuizzesPerPage && (
+                        <div className="mt-6 py-3 flex items-center justify-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setDetailQuizPage((p) => Math.max(1, p - 1))
+                            }
+                            disabled={detailQuizPage === 1}
+                          >
+                            Trước
+                          </Button>
+                          <div className="flex items-center gap-1">
+                            {Array.from(
+                              {
+                                length: Math.ceil(
+                                  detailQuizzes.length / detailQuizzesPerPage
+                                ),
+                              },
+                              (_, i) => i + 1
+                            ).map((page) => (
+                              <button
+                                key={page}
+                                onClick={() => setDetailQuizPage(page)}
+                                className={`min-w-[32px] h-8 px-2 rounded-lg text-sm font-medium transition-colors ${
+                                  detailQuizPage === page
+                                    ? "bg-primary-600 text-white"
+                                    : "bg-secondary-100 text-secondary-700 hover:bg-secondary-200"
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ))}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setDetailQuizPage((p) =>
+                                Math.min(
+                                  Math.ceil(
+                                    detailQuizzes.length / detailQuizzesPerPage
+                                  ),
+                                  p + 1
+                                )
+                              )
+                            }
+                            disabled={
+                              detailQuizPage ===
+                              Math.ceil(
+                                detailQuizzes.length / detailQuizzesPerPage
+                              )
+                            }
+                          >
+                            Sau
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
