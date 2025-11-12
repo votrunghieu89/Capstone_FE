@@ -1,3 +1,4 @@
+//createQuiz.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -13,6 +14,7 @@ import {
   Target,
   Eye,
   EyeOff,
+  Image,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
@@ -22,6 +24,8 @@ import { Footer } from "../../../components/layout/Footer";
 import { CreateQuizRequest } from "../../../types/quiz";
 import { apiClient } from "../../../libs/apiClient";
 import { mockAdapter } from "../../../mocks/adapter";
+import { storage } from '../../../libs/storage';
+
 
 const questionSchema = z.object({
   content: z.string().min(5, "Nội dung câu hỏi phải có ít nhất 5 ký tự"),
@@ -47,7 +51,7 @@ const quizSchema = z.object({
   topicId: z.string().min(1, "Vui lòng chọn chủ đề"),
   isPrivate: z.boolean(),
   folderId: z.string().optional(),
-  avatarUrl: z.string().url("URL ảnh không hợp lệ").optional(),
+  avatarUrl: z.string().optional(),
   questions: z.array(questionSchema).min(1, "Phải có ít nhất 1 câu hỏi"),
 });
 
@@ -68,6 +72,16 @@ interface Question {
   points: number;
   options: Option[];
 }
+interface TopicResponse {
+  id: number;
+  topicName: string;
+}
+
+interface FolderResponse {
+  id: number;
+  folderName: string;
+  parentFolderId?: number | null;
+}
 
 export default function CreateQuiz() {
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +92,34 @@ export default function CreateQuiz() {
   const [folders, setFolders] = useState<
     { id: string; name: string; parentId: string | null }[]
   >([]);
+
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files ? event.target.files[0] : null;
+    setSelectedFileAndPreview(file);
+  };
+  
+  // ✅ HÀM MỚI ĐỂ ĐẶT FILE VÀ TẠO PREVIEW
+  const setSelectedFileAndPreview = (file: File | null) => {
+    setThumbnailFile(file);
+    if (file) {
+      setThumbnailPreview(URL.createObjectURL(file));
+    } else {
+      setThumbnailPreview(null);
+    }
+  };
+
+  // ✅ HÀM XỬ LÝ KHI KÉO THẢ FILE
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault(); 
+    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      const file = event.dataTransfer.files[0];
+      setSelectedFileAndPreview(file); 
+      event.dataTransfer.clearData(); 
+    }
+  };
 
   const {
     register,
@@ -92,77 +134,71 @@ export default function CreateQuiz() {
       questions: [],
     },
   });
-
+  useEffect(() => {
+    // Khi mảng questions thay đổi, cập nhật giá trị cho RHF.
+    // Điều này giúp Zod thấy mảng questions đã có phần tử và vượt qua min(1).
+    setValue('questions', questions as any, { shouldValidate: true }); 
+}, [questions, setValue]);
   const navigate = useNavigate();
 
   // Fetch topics and folders from API
   useEffect(() => {
-    const fetchData = async () => {
-      const useMock = (import.meta as any).env?.VITE_USE_MOCK === "true";
 
-      try {
-        if (useMock) {
-          // Mock data - will be replaced by real API calls
-          setTopics([
-            { id: "1", name: "Toán học" },
-            { id: "2", name: "Vật lý" },
-            { id: "3", name: "Hóa học" },
-            { id: "4", name: "Lịch sử" },
-            { id: "5", name: "Địa lý" },
-            { id: "6", name: "Văn học" },
-          ]);
+  const fetchData = async () => {
+    const user = storage.getUser();
+    console.log("STORAGE USER OBJECT:", user);
+    const currentTeacherId = user?.id; 
 
-          setFolders([
-            { id: "1", name: "Toán học lớp 10", parentId: null },
-            { id: "1-1", name: "Đại số", parentId: "1" },
-            { id: "1-2", name: "Hình học", parentId: "1" },
-            { id: "2", name: "Vật lý cơ bản", parentId: null },
-            { id: "2-1", name: "Cơ học", parentId: "2" },
-            { id: "2-2", name: "Điện học", parentId: "2" },
-            { id: "3", name: "Hóa học", parentId: null },
-            { id: "3-1", name: "Hóa vô cơ", parentId: "3" },
-            { id: "3-2", name: "Hóa hữu cơ", parentId: "3" },
-          ]);
-        } else {
-          // TODO: Replace with real API calls when .NET backend is ready
-          // const topicsResponse = await apiClient.get('/api/topics');
-          // setTopics(topicsResponse.data);
-
-          // const foldersResponse = await apiClient.get('/api/folders');
-          // setFolders(foldersResponse.data);
-
-          // Temporary: Use same mock data until API is ready
-          setTopics([
-            { id: "1", name: "Toán học" },
-            { id: "2", name: "Vật lý" },
-            { id: "3", name: "Hóa học" },
-            { id: "4", name: "Lịch sử" },
-            { id: "5", name: "Địa lý" },
-            { id: "6", name: "Văn học" },
-          ]);
-
-          setFolders([
-            { id: "1", name: "Toán học lớp 10", parentId: null },
-            { id: "1-1", name: "Đại số", parentId: "1" },
-            { id: "1-2", name: "Hình học", parentId: "1" },
-            { id: "2", name: "Vật lý cơ bản", parentId: null },
-            { id: "2-1", name: "Cơ học", parentId: "2" },
-            { id: "2-2", name: "Điện học", parentId: "2" },
-            { id: "3", name: "Hóa học", parentId: null },
-            { id: "3-1", name: "Hóa vô cơ", parentId: "3" },
-            { id: "3-2", name: "Hóa hữu cơ", parentId: "3" },
-          ]);
-        }
-      } catch (error) {
-        console.error("Error fetching topics and folders:", error);
-        // Set empty arrays on error
-        setTopics([]);
-        setFolders([]);
+      // 2. Kiểm tra ID
+      if (!currentTeacherId) {
+          console.error("Teacher ID not found. Cannot fetch setup data.");
+          return;
       }
-    };
+    try {
+    const [topicsResponse, foldersResponse] = await Promise.all([
+        apiClient.get("/Topic/getAllTopic") as any,
+        apiClient.get(`/TeacherFolder/getAllFolder?teacherID=${currentTeacherId}`) as any,
+    ]);
+    
+    const rawTopicsData = (topicsResponse as any).data || (topicsResponse as any); 
+    const rawFoldersData = (foldersResponse as any).data || (foldersResponse as any); 
 
-    fetchData();
-  }, []);
+    // ✅ Log dữ liệu thô
+    console.log("⭐ RAW TOPICS DATA:", rawTopicsData); 
+    console.log("⭐ RAW FOLDERS DATA:", rawFoldersData); 
+
+    // 1. Xử lý Topics
+    setTopics(
+        // Ép kiểu array an toàn trước khi map
+        (Array.isArray(rawTopicsData) ? rawTopicsData : []) 
+        .map((t: any) => ({
+            id: t.topicId ? t.topicId.toString() : t.id.toString(), 
+            name: t.topicName || t.name,
+        }))
+    );
+
+    // 2. Xử lý Folders
+    setFolders(
+        // Ép kiểu array an toàn trước khi map
+        (Array.isArray(rawFoldersData) ? rawFoldersData : [])
+        .map((f: any) => ({
+            id: f.folderId ? f.folderId.toString() : f.id.toString(), 
+            name: f.folderName || f.name,
+           parentId: f.parentFolderId !== undefined && f.parentFolderId !== null 
+                  ? f.parentFolderId.toString() 
+                  : null,
+        }))
+    );
+    } catch (error) {
+      console.error("❌ Lỗi khi tải dữ liệu:", error);
+      setTopics([]);
+      setFolders([]);
+    }
+  };
+
+  fetchData();
+}, []);
+
 
   const isPrivate = watch("isPrivate");
 
@@ -188,74 +224,85 @@ export default function CreateQuiz() {
     renderFolder(null, 0);
     return result;
   };
-
+const mapQuestionType = (type: "MultipleChoice" | "TrueFalse"): "MCQ" | "TF" => {
+        return type === "MultipleChoice" ? "MCQ" : "TF";
+    };
   const onSubmit = async (data: QuizForm) => {
     setIsLoading(true);
+    console.log("LOG 1: onSubmit started. Form data:", data);
     try {
-      const payload: CreateQuizRequest = {
-        title: data.title,
-        description: data.description || undefined,
-        topicId: parseInt(data.topicId, 10),
-        isPrivate: data.isPrivate,
-        avatarUrl: data.avatarUrl || undefined,
-        folderId: data.folderId ? parseInt(data.folderId, 10) : undefined,
-      };
+      // 1. Lấy Teacher ID thật cho Submission
+      const user = storage.getUser();
+      const teacherId = user?.id; 
+      
+      if (!teacherId) {
+        console.log("LOG 2: Error - Teacher ID is missing.");
+          throw new Error("Thông tin giáo viên không hợp lệ. Vui lòng đăng nhập lại.");
+      }
+      
+      // 2. Upload ảnh (nếu có)
+      let avatarURL: string | undefined = data.avatarUrl; // Giữ lại cho trường hợp nhập link
+     if (thumbnailFile) {
+          console.log("LOG 3: Starting file upload...");
+          console.log(thumbnailFile.name);
+          const formData = new FormData();
+          formData.append("AvatarURL", thumbnailFile);
 
-      const useMock = (import.meta as any).env?.VITE_USE_MOCK === "true";
-      if (useMock) {
-        const created = await mockAdapter.post<
-          { quizId: number } & CreateQuizRequest
-        >("/quizzes", payload);
-        for (const [index, q] of questions.entries()) {
-          const createdQ = await mockAdapter.post<{ id: number }>(
-            "/questions",
-            {
-              quizId: (created as any).quizId,
-              questionType: q.questionType,
-              content: q.content,
-              time: q.timeLimit,
-              points: q.points,
-              order: index + 1,
-            }
-          );
-          for (const [optIndex, opt] of q.options.entries()) {
-            await mockAdapter.post("/options", {
-              questionId: (createdQ as any).id,
-              content: opt.content,
-              isCorrect: opt.isCorrect,
-              order: optIndex + 1,
-            });
-          }
+          const uploadResponse = (await apiClient.post(
+            "/Quiz/uploadImage",
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+          )) as any;
+          avatarURL = uploadResponse.imageUrl;
         }
+        
+        
+      // 3. Build payload
+      const payload = {
+            TeacherId: parseInt(teacherId, 10), // Sử dụng PascalCase cho thuộc tính chính
+            TopicId: parseInt(data.topicId, 10),
+            FolderId: data.folderId ? parseInt(data.folderId, 10) : 0, 
+            title: data.title,
+            description: data.description || "",
+            isPrivate: data.isPrivate,
+            avatarURL: avatarURL || "", 
+            numberOfPlays: 0, // Bắt buộc là số
+            createdAt: new Date().toISOString(),
+            Questions: questions.map((q) => ({
+                QuestionType: mapQuestionType(q.questionType),
+                QuestionContent: q.content,
+                Time: q.timeLimit,
+                Score: q.points,
+                Options: q.options.map((opt) => ({
+                    OptionContent: opt.content,
+                    IsCorrect: opt.isCorrect,
+                })),
+            })),
+        };
+      // 4. Gọi API tạo quiz
+      console.log("LOG 4: Attempting to create quiz...");
+      const quizData = {
+  imageUrl: avatarURL,
+  // thêm các trường khác nếu cần
+};
+console.log("Payload tạo quiz:", quizData);
+      const response = (await apiClient.post("/Quiz/createQuiz", payload)) as any;
+
+      if (response.status === 200 || response.status === 201 || response) {
+        alert("✅ Tạo quiz thành công!");
+        navigate("/teacher/folders");
       } else {
-        const created = await apiClient.post<
-          { quizId: number } & CreateQuizRequest
-        >("/quizzes", payload);
-        for (const [index, q] of questions.entries()) {
-          const createdQ = await apiClient.post<{ id: number }>("/questions", {
-            quizId: (created as any).quizId,
-            questionType: q.questionType,
-            content: q.content,
-            time: q.timeLimit,
-            points: q.points,
-            order: index + 1,
-          });
-          for (const [optIndex, opt] of q.options.entries()) {
-            await apiClient.post("/options", {
-              questionId: (createdQ as any).id,
-              content: opt.content,
-              isCorrect: opt.isCorrect,
-              order: optIndex + 1,
-            });
-          }
-        }
+        console.error("Create quiz bad response:", response);
+        throw new Error("Tạo quiz thất bại");
       }
     } catch (error) {
-      console.error("Create quiz error:", error);
+      console.error("❌ Lỗi khi tạo quiz:", error);
+      alert("Đã xảy ra lỗi khi tạo quiz. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);
     }
   };
+
 
   const handleAddQuestion = () => {
     const newQuestion: Question = {
@@ -406,12 +453,50 @@ export default function CreateQuiz() {
                   </div>
                 </div>
 
-                <Input
-                  label="Link ảnh thumbnail"
-                  placeholder="https://example.com/image.jpg"
-                  error={errors.avatarUrl?.message}
-                  {...register("avatarUrl")}
-                />
+                <div>
+                  <label 
+                      htmlFor="thumbnail-upload" 
+                      className="text-sm font-medium text-secondary-700 mb-2 block"
+                  >
+                      Ảnh Thumbnail (Tải lên)
+                  </label>
+
+                  {/* ✅ Vùng kéo thả và click chọn file */}
+                  <div
+                      className="relative flex items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
+                      onDragOver={(e) => e.preventDefault()} // Ngăn chặn hành vi mặc định của trình duyệt
+                      onDrop={handleDrop} // Xử lý khi file được thả vào
+                      onClick={() => document.getElementById('hidden-thumbnail-input')?.click()} // Click để mở hộp thoại chọn file
+                  >
+                      {thumbnailPreview ? (
+                          // Hiển thị preview nếu có ảnh
+                          <img src={thumbnailPreview} alt="Thumbnail Preview" className="absolute inset-0 w-full h-full object-cover rounded-lg" />
+                      ) : (
+                          // Nội dung mặc định khi chưa có ảnh
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Image className="w-10 h-10 mb-3 text-gray-400" />
+                              <p className="mb-2 text-sm text-gray-500">
+                                  <span className="font-semibold">Chọn ảnh thumbnail</span>
+                              </p>
+                              <p className="text-xs text-gray-500">Kéo thả hoặc click để chọn file (PNG, JPG, GIF)</p>
+                          </div>
+                      )}
+                      
+                      {/* ✅ Input type="file" ẩn đi */}
+                      <input
+                          id="hidden-thumbnail-input" // ID để liên kết với onClick của div
+                          type="file"
+                          accept="image/*"
+                          className="hidden" // Ẩn input đi
+                          onChange={handleFileChange} // Gọi hàm xử lý khi file được chọn
+                      />
+                  </div>
+
+    {/* Vùng hiển thị lỗi validation nếu cần */}
+    {errors.avatarUrl && ( // Sử dụng error từ avatarUrl, mặc dù nó là hidden input
+        <p className="text-sm text-red-500 mt-1">{errors.avatarUrl.message}</p>
+    )}
+</div>
 
                 <div className="flex items-center space-x-4">
                   <label className="flex items-center">
@@ -578,6 +663,7 @@ function QuestionForm({ question, onSave, onCancel }: QuestionFormProps) {
     handleSubmit,
     formState: { errors },
     watch,
+    setValue,
   } = useForm<QuestionForm>({
     resolver: zodResolver(questionSchema),
     defaultValues: {
@@ -590,6 +676,9 @@ function QuestionForm({ question, onSave, onCancel }: QuestionFormProps) {
   });
 
   const questionType = watch("questionType");
+  useEffect(() => {
+    setValue('options', options as any, { shouldValidate: true }); 
+  }, [options, setValue]); // Chạy lại mỗi khi options thay đổi
 
   const handleAddOption = () => {
     const newOption: Option = {
@@ -617,14 +706,27 @@ function QuestionForm({ question, onSave, onCancel }: QuestionFormProps) {
   };
 
   const onSubmit = (data: QuestionForm) => {
+    // 1. Lấy mảng options đã được cập nhật từ state cục bộ
+    const finalOptions = options.map((opt) => ({
+      content: opt.content,
+      isCorrect: opt.isCorrect,
+    }));
+    
+    // 2. KIỂM TRA LOGIC: Đảm bảo có ít nhất một đáp án đúng
+    const correctCount = finalOptions.filter(opt => opt.isCorrect).length;
+    
+    if (correctCount === 0) {
+        // Nếu không có đáp án nào được chọn là đúng, hiển thị lỗi và dừng submit
+        alert("Vui lòng chọn ít nhất một đáp án đúng!");
+        return; 
+    }
+
+    // 3. Gửi dữ liệu an toàn nếu validation tùy chỉnh thành công
     onSave({
       ...data,
-      options: options.map((opt) => ({
-        content: opt.content,
-        isCorrect: opt.isCorrect,
-      })),
+      options: finalOptions, // Gửi mảng options đã được map
     });
-  };
+};
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

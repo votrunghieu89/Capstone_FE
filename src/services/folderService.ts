@@ -103,6 +103,13 @@ class FolderService {
       `${this.baseUrl}/deleteFolder?folderId=${folderId}`
     );
   }
+
+  async deleteQuiz(quizId: string): Promise<{ message: string }> {
+        // ✅ CÁCH GỌI ĐÚNG VÀ TỐI ƯU: Chỉ định Controller/Action
+        return apiClient.delete<{ message: string }>(
+            `/Quiz/deleteQuiz/${quizId}` 
+        );
+    }
 }
 
 export const folderService = new FolderService();

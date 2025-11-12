@@ -1,3 +1,4 @@
+//home.tsx ver 2
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -12,12 +13,18 @@ import { TopNavbar } from "../../components/layout/TopNavbar";
 import { Footer } from "../../components/layout/Footer";
 import { storage } from "../../libs/storage";
 import { useMemo, useState } from "react";
-
+import { useQuery } from '@tanstack/react-query';
+import { useGetPublicQuizzes } from '../../libs/api/quizApi';
+import { Spinner } from "../../components/common/Spinner";
 export default function Landing() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Tất cả");
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+  const { data: apiQuizzes, isLoading, isError, error } = useGetPublicQuizzes(1,12);
+  const quizzes = (apiQuizzes as any[]) || [];
+  const totalCount = quizzes.length;
   const categories = [
     "Tất cả",
     "Toán học",
@@ -28,74 +35,16 @@ export default function Landing() {
     "Địa lý",
   ];
 
-  // Mock data - sẽ thay bằng API khi có quiz public
-  const quizzes = [
-    {
-      id: "q1",
-      title: "Sinh học tế bào",
-      desc: "Khám phá cấu trúc và chức năng của tế bào",
-      cat: "Khoa học",
-      questions: 18,
-      minutes: 22,
-      plays: 189,
-    },
-    {
-      id: "q2",
-      title: "Phương trình bậc hai",
-      desc: "Ôn tập các dạng bài tập về phương trình bậc hai cơ bản",
-      cat: "Toán học",
-      questions: 15,
-      minutes: 20,
-      plays: 234,
-    },
-    {
-      id: "q3",
-      title: "Lịch sử Việt Nam thế kỷ 20",
-      desc: "Tìm hiểu các sự kiện quan trọng trong lịch sử Việt Nam",
-      cat: "Lịch sử",
-      questions: 20,
-      minutes: 25,
-      plays: 456,
-    },
-    {
-      id: "q4",
-      title: "Từ vựng tiếng Anh cơ bản",
-      desc: "Các mẫu câu và từ vựng phổ biến",
-      cat: "Tiếng Anh",
-      questions: 12,
-      minutes: 15,
-      plays: 120,
-    },
-    {
-      id: "q5",
-      title: "Địa lý thế giới",
-      desc: "Kiến thức địa lý tổng hợp",
-      cat: "Địa lý",
-      questions: 16,
-      minutes: 18,
-      plays: 98,
-    },
-    {
-      id: "q6",
-      title: "Văn học Việt Nam",
-      desc: "Tác phẩm tiêu biểu và tác giả",
-      cat: "Văn học",
-      questions: 14,
-      minutes: 20,
-      plays: 140,
-    },
-  ];
-
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return quizzes.filter(
       (q) =>
-        (activeCategory === "Tất cả" || q.cat === activeCategory) &&
+        (activeCategory === "Tất cả" || q.topicName === activeCategory) &&
         (!s ||
           q.title.toLowerCase().includes(s) ||
-          q.desc.toLowerCase().includes(s))
+          q.description.toLowerCase().includes(s))
     );
-  }, [activeCategory, search]);
+  }, [activeCategory, search,quizzes]);
 
   const user = storage.getUser();
 
@@ -172,77 +121,98 @@ export default function Landing() {
         </section>
 
         {/* Categories filter bar */}
-        <section className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-secondary-50 to-primary-50 rounded-lg border border-primary-100">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setActiveCategory(c)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeCategory === c
-                    ? "bg-primary-600 text-white shadow-md"
-                    : "bg-white hover:bg-primary-50 text-secondary-700 border border-secondary-200"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <button className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all">
-            <SlidersHorizontal className="w-4 h-4 mr-2" /> Lọc
-          </button>
-        </section>
+        <section className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-secondary-50 to-primary-50 rounded-lg border border-primary-100">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setActiveCategory(c)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeCategory === c
+                    ? "bg-primary-600 text-white shadow-md"
+                    : "bg-white hover:bg-primary-50 text-secondary-700 border border-secondary-200"
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <button className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all">
+            <SlidersHorizontal className="w-4 h-4 mr-2" /> Lọc
+          </button>
+        </section>
 
-        <p className="text-sm text-secondary-600 mb-6 font-medium">
-          Tìm thấy {filtered.length} quiz
-        </p>
+        {/* ✅ LOGIC RENDER API THẬT */}
+        {isLoading ? (
+            <div className="text-center py-20">
+                <Spinner size="lg" className="text-primary-600" />
+                <p className="mt-3 text-secondary-600">Đang tải các Quiz mới nhất...</p>
+            </div>
+        ) : isError ? (
+            <div className="text-center py-20 text-red-600 border border-red-200 p-4 rounded-xl">
+                Lỗi tải dữ liệu. Vui lòng kiểm tra kết nối API.
+            </div>
+        ) : (
+            <>
+                <p className="text-sm text-secondary-600 mb-6 font-medium">
+                    Tìm thấy {filtered.length} quiz
+                </p>
 
-        {/* Featured grid */}
-        <section
-          id="landing-quizzes"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {filtered.map((q) => (
-            <div
-              key={q.id}
-              className="rounded-2xl overflow-hidden border border-primary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
-            >
-              <Link to={`/quiz/preview/${q.id}`} className="block">
-                <div className="h-48 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 flex items-center justify-center">
-                  <BookOpen className="w-20 h-20 text-blue-400" />
-                </div>
-                <div className="p-5">
-                  <div className="mb-3">
-                    <span className="inline-block text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-medium">
-                      {q.cat}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-secondary-900 mb-2 text-lg line-clamp-2">
-                    {q.title}
-                  </h3>
-                  <div className="flex items-center text-sm text-secondary-600 space-x-4 mb-4">
-                    <span className="flex items-center">
-                      <Bookmark className="w-4 h-4 mr-1" />
-                      {q.questions} câu
-                    </span>
-                    <span>{q.plays} lượt chơi</span>
-                  </div>
-                  <Button
-                    className="w-full"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(`/quiz/preview/${q.id}`);
-                    }}
-                  >
-                    Xem chi tiết
-                  </Button>
-                </div>
-              </Link>
-            </div>
-          ))}
-        </section>
-      </main>
-      <Footer />
-    </div>
-  );
+                {/* Featured grid */}
+                <section
+                    id="landing-quizzes"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                >
+                    {filtered.map((q: any) => (
+                        <div
+                            key={q.quizId}
+                            className="rounded-2xl overflow-hidden border border-primary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
+                        >
+                            <Link to={`/quiz/preview/${q.quizId}`} className="block">
+                                {/* Vùng Cover/Ảnh */}
+                                <div className="h-48 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 flex items-center justify-center">
+                                    {q.avatarURL ? (
+                                        <img src={q.avatarURL} alt={q.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <BookOpen className="w-20 h-20 text-blue-400" />
+                                    )}
+                                </div>
+                                <div className="p-5">
+                                    {/* Category */}
+                                    <div className="mb-3">
+                                        <span className="inline-block text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                                            {q.topicName}
+                                        </span>
+                                    </div>
+                                    <h3 className="font-bold text-secondary-900 mb-2 text-lg line-clamp-2">
+                                        {q.title}
+                                    </h3>
+                                    <div className="flex items-center text-sm text-secondary-600 space-x-4 mb-4">
+                                        <span className="flex items-center">
+                                            <Bookmark className="w-4 h-4 mr-1" />
+                                            {q.totalQuestion} câu
+                                        </span>
+                                        <span>{q.totalParticipants || 0} lượt chơi</span>
+                                    </div>
+                                    <Button
+                                        className="w-full"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            navigate(`/quiz/preview/${q.quizId}`);
+                                        }}
+                                    >
+                                        Xem chi tiết
+                                    </Button>
+                                </div>
+                            </Link>
+                        </div>
+                      ))}
+                </section>
+            </>
+        )}
+      </main>
+      <Footer />
+    </div>
+  );
 }
+<Footer />

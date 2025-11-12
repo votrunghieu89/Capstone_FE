@@ -3,6 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { apiClient } from "../../../libs/apiClient";
+import { storage } from '../../../libs/storage';
+
 import {
   Plus,
   Trash2,
@@ -66,8 +69,20 @@ interface Question {
   options: Option[];
 }
 
+// ✅ INTERFACE CHO DỮ LIỆU TẢI VỀ (Sử dụng camelCase thực tế từ API)
+interface QuizDetailResponse {
+    quizId: number;
+    title: string;
+    description: string;
+    topicId: number;
+    isPrivate: boolean;
+    folderId?: number | null;
+    avatarURL?: string;
+    questions: any[]; // Mảng câu hỏi thực tế
+}
+
 export default function EditQuiz() {
-  const { quizId } = useParams();
+  const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,7 +92,10 @@ export default function EditQuiz() {
   const [editingQuestionIndex, setEditingQuestionIndex] = useState<
     number | null
   >(null);
-
+  const [topics, setTopics] = useState<{ id: string; name: string }[]>([]);
+  const [folders, setFolders] = useState<
+    { id: string; name: string; parentId: string | null }[]
+  >([]);
   const {
     register,
     handleSubmit,
@@ -94,103 +112,135 @@ export default function EditQuiz() {
   });
 
   const isPrivate = watch("isPrivate");
+// ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (Tương tự CreateQuiz)
+  const mapQuestionTypeToForm = (type: string): "MultipleChoice" | "TrueFalse" => {
+    return type === "MTC" ? "MultipleChoice" : "TrueFalse";
+  };
+  
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (Tương tự CreateQuiz)
+  const mapQuestionTypeToPayload = (type: "MultipleChoice" | "TrueFalse"): "MTC" | "TF" => {
+    return type === "MultipleChoice" ? "MTC" : "TF";
+  };
+  
+  // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
+  const renderFolderOptions = () => {
+    const result: JSX.Element[] = [];
 
-  const topics = [
-    { id: "1", name: "Toán học" },
-    { id: "2", name: "Vật lý" },
-    { id: "3", name: "Hóa học" },
-    { id: "4", name: "Lịch sử" },
-    { id: "5", name: "Địa lý" },
-    { id: "6", name: "Văn học" },
-  ];
+    const renderFolder = (folderId: string | null, level: number) => {
+      const subfolders = folders.filter((f) => f.parentId === folderId);
+      subfolders.forEach((folder) => {
+        const indent = "\u00A0\u00A0".repeat(level * 2); 
+        result.push(
+          <option key={folder.id} value={folder.id}>
+            {indent}
+            {level > 0 ? "└─ " : ""}
+            {folder.name}
+          </option>
+        );
+        renderFolder(folder.id, level + 1);
+      });
+    };
 
-  const folders = [
-    { id: "1", name: "Toán học lớp 10" },
-    { id: "2", name: "Vật lý cơ bản" },
-    { id: "3", name: "Hóa học" },
-    { id: "4", name: "Lịch sử Việt Nam" },
-  ];
+    renderFolder(null, 0);
+    return result;
+  };
+  
 
   // Load quiz data
   useEffect(() => {
-    const loadQuizData = async () => {
-      try {
-        setIsLoading(true);
+    const loadData = async () => {
+        const user = storage.getUser();
+        const teacherId = user?.id; 
 
-        // Mock data - Replace with actual API call
-        // const response = await apiClient.get(`/quiz/${quizId}`);
-        const mockQuiz = {
-          id: quizId,
-          title: "Hàm số bậc nhất",
-          description: "Khái niệm và tính chất hàm số bậc nhất",
-          topicId: "1",
-          isPrivate: false,
-          folderId: "1",
-          avatarUrl: "",
-          questions: [
-            {
-              id: "q1",
-              content: "Hàm số bậc nhất có dạng tổng quát như thế nào?",
-              questionType: "MultipleChoice" as const,
-              timeLimit: 30,
-              points: 10,
-              options: [
-                { id: "o1", content: "y = ax + b (a ≠ 0)", isCorrect: true },
-                { id: "o2", content: "y = ax² + bx + c", isCorrect: false },
-                { id: "o3", content: "y = a/x", isCorrect: false },
-                { id: "o4", content: "y = √x", isCorrect: false },
-              ],
-            },
-            {
-              id: "q2",
-              content: "Đồ thị hàm số bậc nhất là đường gì?",
-              questionType: "MultipleChoice" as const,
-              timeLimit: 25,
-              points: 10,
-              options: [
-                { id: "o1", content: "Đường thẳng", isCorrect: true },
-                { id: "o2", content: "Đường cong", isCorrect: false },
-                { id: "o3", content: "Đường tròn", isCorrect: false },
-                { id: "o4", content: "Parabol", isCorrect: false },
-              ],
-            },
-          ],
-        };
+        if (!quizId || !teacherId) {
+            setIsLoading(false);
+            alert("Thiếu Quiz ID hoặc Teacher ID. Vui lòng kiểm tra đăng nhập.");
+            return;
+        }
+        try {
+            // 1. TẢI DỮ LIỆU SETUP (TOPICS VÀ FOLDERS)
+            const [topicsResponse, foldersResponse, quizResponse] = await Promise.all([
+                apiClient.get("/Topic/getAllTopic") as any,
+               
+                apiClient.get(`/TeacherFolder/getAllFolder?teacherID=${teacherId}`) as any, 
+               
+                apiClient.get(`Quiz/getDetailOfATeacherQuiz/${quizId}`) as any,
+            ]);
 
-        // Set form values
-        reset({
-          title: mockQuiz.title,
-          description: mockQuiz.description,
-          topicId: mockQuiz.topicId,
-          isPrivate: mockQuiz.isPrivate,
-          folderId: mockQuiz.folderId,
-          avatarUrl: mockQuiz.avatarUrl,
-          questions: mockQuiz.questions,
-        });
+          console.log("📡 quizResponse", quizResponse);
+          console.log("📚 topicsResponse =", topicsResponse);
+          console.log("🗂️ foldersResponse =", foldersResponse);
+            setTopics(
+                topicsResponse.data.map((t: any) => ({
+                    id: t.TopicId.toString(),
+                    name: t.TopicName,
+                }))
+            );
+            setFolders(
+                foldersResponse.data.map((f: any) => ({
+                    id: f.FolderId.toString(),
+                    name: f.FolderName,
+                    parentId: f.ParentFolderId ? f.ParentFolderId.toString() : null,
+                }))
+            );
+            
+            // 2. XỬ LÝ VÀ HYDRATE DỮ LIỆU QUIZ
+           const realQuizData = quizResponse as QuizDetailResponse;
+                  if (!realQuizData || !realQuizData.questions) { // Thay 'quiz' bằng thuộc tính chứa dữ liệu chi tiết, ở đây là kiểm tra 'realQuizData' và mảng 'Questions'
+                    console.error("Quiz không tồn tại hoặc dữ liệu lỗi:", realQuizData);
+                    setIsLoading(false);
+                    return;
+                }
+            const mappedQuestions: Question[] = realQuizData.questions.map((q: any) => ({
+                id: q.quizId?.toString() || '',
+                content: q.questionContent,
+                questionType: mapQuestionTypeToForm(q.questionType), 
+                timeLimit: q.timeLimit,
+                points: q.score,
+                options: q.options.map((o: any) => ({
+                    id: o.optionId.toString()||o.id?.toString() || '',
+                    content: o.optionContent,
+                    isCorrect: o.IsCorrect,
+                })),
+            }));
 
-        setQuestions(mockQuiz.questions);
-      } catch (error) {
-        console.error("Error loading quiz:", error);
-        alert("Không thể tải dữ liệu quiz. Vui lòng thử lại!");
-      } finally {
-        setIsLoading(false);
-      }
+            // ĐIỀN DỮ LIỆU VÀO FORM (HYDRATION)
+            reset({
+                title: realQuizData.title,
+                description: realQuizData.description,
+                topicId: realQuizData.topicId?.toString(),
+                isPrivate: realQuizData.isPrivate,
+                folderId: realQuizData.folderId?.toString() || "",
+                avatarUrl: realQuizData.avatarURL,
+                questions: mappedQuestions, 
+            });
+
+            setQuestions(mappedQuestions); // Đồng bộ hóa state questions
+
+        } catch (error) {
+            console.error("Error loading quiz:", error);
+            alert("Không thể tải dữ liệu quiz. Vui lòng kiểm tra API getQuizDetail.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    loadQuizData();
-  }, [quizId, reset]);
+    if (quizId) {
+        loadData();
+    } else {
+        setIsLoading(false);
+    }
+}, [quizId, reset]);
 
   const handleAddQuestion = (question: Question) => {
     if (editingQuestionIndex !== null) {
-      // Update existing question
       const updatedQuestions = [...questions];
       updatedQuestions[editingQuestionIndex] = question;
       setQuestions(updatedQuestions);
       setValue("questions", updatedQuestions);
       setEditingQuestionIndex(null);
     } else {
-      // Add new question
-      const updatedQuestions = [...questions, question];
+      const updatedQuestions = [...questions, { ...question, id: Date.now().toString() }];
       setQuestions(updatedQuestions);
       setValue("questions", updatedQuestions);
     }
@@ -211,24 +261,55 @@ export default function EditQuiz() {
       setValue("questions", updatedQuestions);
     }
   };
-
+  // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
   const onSubmit = async (data: QuizForm) => {
     try {
-      setIsSaving(true);
-      console.log("Updating quiz:", data);
+        setIsSaving(true);
+        const user = storage.getUser();
+        const teacherId = user?.id; 
 
-      // Mock API call - Replace with actual API call
-      // await apiClient.put(`/quiz/${quizId}`, data);
+        if (quizId||!teacherId) throw new Error("Thông tin giáo viên không hợp lệ.");
+        
+        // 1. Chuẩn bị Payload UPDATE
+        const finalPayload = {
+            QuizId: parseInt(quizId!, 10), // Bắt buộc phải có QuizId để update
+            //TeacherId: parseInt(teacherId, 10), 
+            FolderId: data.folderId ? parseInt(data.folderId, 10) : 0, 
+            TopicId: parseInt(data.topicId, 10),
+            Title: data.title, 
+            Description: data.description || "", 
+            IsPrivate: data.isPrivate, 
+            AvartarURL: data.avatarUrl || "", 
+            UpdateAt: new Date().toISOString(),
+            
+            // Chuyển đổi questions/options sang PascalCase/Mã rút gọn
+            Questions: questions.map((q) => ({
+                QuestionId: parseInt(q.id, 10), // Giữ lại ID nếu là câu hỏi cũ
+                QuestionType: mapQuestionTypeToPayload(q.questionType), 
+                QuestionContent: q.content,
+                Time: q.timeLimit,
+                Score: q.points,
+                IsDeleted: false, // Giả định false, trừ khi có logic xóa phức tạp
+                UpdateAt: new Date().toISOString(),
+                Options: q.options.map((opt) => ({
+                    OptionId: parseInt(opt.id, 10), // Giữ lại ID nếu là đáp án cũ
+                    OptionContent: opt.content,
+                    IsCorrect: opt.isCorrect,
+                    IsDeleted: false, // Giả định false
+                    UpdateAt: new Date().toISOString(),
+                })),
+            })),
+        };
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+        const response = await apiClient.put(`/api/Quiz/updateQuiz`, finalPayload); 
 
-      alert("Cập nhật quiz thành công!");
-      navigate("/teacher/folders");
+        alert("Cập nhật quiz thành công!");
+        navigate("/teacher/folders"); // Chuyển hướng về trang quản lý folders
     } catch (error) {
-      console.error("Error updating quiz:", error);
-      alert("Có lỗi xảy ra khi cập nhật quiz. Vui lòng thử lại!");
+        console.error("Error updating quiz:", error);
+        alert("Có lỗi xảy ra khi cập nhật quiz. Vui lòng thử lại!");
     } finally {
-      setIsSaving(false);
+        setIsSaving(false);
     }
   };
 
