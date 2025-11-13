@@ -241,20 +241,20 @@ const mapQuestionType = (type: "MultipleChoice" | "TrueFalse"): "MCQ" | "TF" => 
       }
       
       // 2. Upload ảnh (nếu có)
-      let avatarURL: string | undefined = data.avatarUrl; // Giữ lại cho trường hợp nhập link
-     if (thumbnailFile) {
-          console.log("LOG 3: Starting file upload...");
-          console.log(thumbnailFile.name);
-          const formData = new FormData();
-          formData.append("AvatarURL", thumbnailFile);
-
+    let avatarURL: string | undefined = data.avatarUrl; // giữ lại nếu người dùng nhập link
+    const formData = new FormData();
+   if (thumbnailFile) {
+        formData.append("AvatarURL", thumbnailFile);
+    } else {
+        formData.append("AvatarURL", null as any); // TypeScript ok, runtime backend nhận null
+    }
           const uploadResponse = (await apiClient.post(
             "/Quiz/uploadImage",
             formData,
             { headers: { "Content-Type": "multipart/form-data" } }
           )) as any;
           avatarURL = uploadResponse.imageUrl;
-        }
+          console.log("LOG 3: File uploaded. URL:", avatarURL);
         
         
       // 3. Build payload
