@@ -157,12 +157,14 @@ export default function QuizPreview() {
       setIsFavLoading(true);
 
       if (isFav) {
-        // Can't remove from favourites - need favouriteId from BE
-        toast.error(
-          "Để xóa yêu thích, vui lòng vào trang 'Yêu thích' và xóa ở đó"
+        // Remove from favourites using new BE API
+        console.log("Removing from favourites:", quiz.quizId, accountId);
+        await favouriteService.removeFavouriteQuizInDetail(
+          quiz.quizId,
+          accountId
         );
-        setIsFavLoading(false);
-        return;
+        setIsFav(false);
+        toast.success("✅ Đã xóa khỏi danh sách yêu thích!");
       } else {
         // Add to favourites
         console.log("Adding to favourites:", accountId, quiz.quizId);
@@ -172,7 +174,7 @@ export default function QuizPreview() {
         );
         console.log("Add favourite result:", result);
         setIsFav(true);
-        toast.success("Đã thêm vào danh sách yêu thích!");
+        toast.success("✅ Đã thêm vào danh sách yêu thích!");
       }
     } catch (err: any) {
       console.error("Error toggling favourite:", err);

@@ -7,7 +7,6 @@ import { Mail, Lock, User as UserIcon, MapPin, Building2 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
 import { Spinner } from "../../../components/common/Spinner";
-import { storage } from "../../../libs/storage";
 import { Logo } from "../../../components/common/Logo";
 import { authApi } from "../../../libs/api/authApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
@@ -57,6 +56,13 @@ type RegisterForm = z.infer<typeof registerSchema>;
 export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showOTPModal, setShowOTPModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [registrationEmail, setRegistrationEmail] = useState("");
+  const [registrationRole, setRegistrationRole] = useState<
+    "Student" | "Teacher"
+  >("Student");
+  const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
   const navigate = useNavigate();
   const { toasts, success, error: showError, removeToast } = useToast();
 
@@ -79,33 +85,112 @@ export default function Register() {
     },
   });
 
-  // Watch selected role for Google registration
-  const selectedRole = watch("role");
-
   // Handle Google Register (use selected role)
   const handleGoogleRegister = async () => {
     setIsGoogleLoading(true);
+
+    // Wait for Google SDK to load
+    let retries = 0;
+    const maxRetries = 10;
+
+    while (retries < maxRetries) {
+      // @ts-ignore
+      if (window.google?.accounts?.id) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      retries++;
+    }
+
     try {
-      // Initialize Google OAuth
       // @ts-ignore
       const google = window.google;
-      if (!google) {
+      if (!google?.accounts?.id) {
         showError("Google OAuth chưa được tải. Vui lòng thử lại sau.");
+        setIsGoogleLoading(false);
         return;
       }
 
-      // Show Google One Tap or redirect to Google OAuth
-      showError("Chức năng đang phát triển. Vui lòng sử dụng form đăng ký.");
+      const selectedRole = watch("role");
+      console.log("Initializing Google Sign-In for registration...");
+      console.log("Selected role:", selectedRole);
+      console.log("Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
-      // TODO: Implement Google OAuth flow
-      // When you get idToken from Google:
-      // const { user, response } = await handleGoogleAuth(idToken, selectedRole);
-      // success("✅ Đăng ký thành công!");
-      // setTimeout(() => navigate(getRedirectPath(response.role)), 1000);
+      // Use Google Sign-In with popup
+      const handleGoogleResponse = async (response: any) => {
+        try {
+          const idToken = response.credential;
+          console.log("Google ID Token received");
+          console.log("Token length:", idToken?.length);
+          console.log("Token preview:", idToken?.substring(0, 50) + "...");
+          console.log("Calling API with role:", selectedRole);
+
+          // Register/Login with Google based on selected role
+          const { response: authResponse } = await handleGoogleAuth(
+            idToken,
+            selectedRole
+          );
+          success("✅ Đăng ký/Đăng nhập thành công!");
+          setTimeout(() => navigate(getRedirectPath(authResponse.role)), 1000);
+        } catch (error: any) {
+          console.error("Google auth error:", error);
+          console.error("Error details:", {
+            message: error?.response?.data?.message,
+            status: error?.response?.status,
+            data: error?.response?.data,
+          });
+
+          const errorMessage =
+            error?.response?.data?.message ||
+            (error?.response?.status === 500
+              ? "❌ Lỗi server. Vui lòng kiểm tra backend đang chạy và Google Client ID đúng."
+              : "❌ Đăng ký Google thất bại. Tài khoản có thể đã tồn tại hoặc chưa được đăng ký.");
+
+          showError(errorMessage);
+        } finally {
+          setIsGoogleLoading(false);
+        }
+      };
+
+      // Initialize with callback
+      google.accounts.id.initialize({
+        client_id:
+          import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+        callback: handleGoogleResponse,
+      });
+
+      // Create a temporary container for Google button
+      const tempDiv = document.createElement("div");
+      tempDiv.style.display = "none";
+      document.body.appendChild(tempDiv);
+
+      // Render Google button and auto-click it
+      google.accounts.id.renderButton(tempDiv, {
+        type: "standard",
+        size: "large",
+        width: 250,
+      });
+
+      console.log("Triggering Google Sign-In...");
+      // Auto-click the button
+      setTimeout(() => {
+        const googleButton = tempDiv.querySelector(
+          'div[role="button"]'
+        ) as HTMLElement;
+        if (googleButton) {
+          googleButton.click();
+          // Clean up after a short delay
+          setTimeout(() => document.body.removeChild(tempDiv), 1000);
+        } else {
+          console.error("Google button not found");
+          showError("❌ Không thể khởi tạo Google Sign-In");
+          setIsGoogleLoading(false);
+          document.body.removeChild(tempDiv);
+        }
+      }, 100);
     } catch (error: any) {
       console.error("Google register error:", error);
-      showError(error.response?.data?.message || "Đăng ký Google thất bại.");
-    } finally {
+      showError("❌ Đăng ký Google thất bại: " + (error.message || ""));
       setIsGoogleLoading(false);
     }
   };
@@ -126,23 +211,23 @@ export default function Register() {
 
     try {
       if (data.role === "Student") {
-        // Đăng ký Student
+        // Gửi OTP cho Student
         const payload = {
           fullName: data.name,
           email: data.email,
           passwordHash: data.password,
         };
-        console.log("Sending Student registration:", payload);
+        console.log("Sending OTP for Student:", payload);
 
-        const response = await authApi.registerStudent(payload);
-        console.log("Student registration response:", response);
+        const response = await authApi.sendOTPStudent(payload);
+        console.log("OTP sent response:", response);
 
-        success(
-          "✅ Đăng ký học sinh thành công! Đang chuyển tới trang đăng nhập..."
-        );
-        setTimeout(() => navigate("/auth/login"), 1500);
+        success("✅ Mã OTP đã được gửi đến email của bạn!");
+        setRegistrationEmail(data.email);
+        setRegistrationRole("Student");
+        setShowOTPModal(true);
       } else {
-        // Đăng ký Teacher
+        // Gửi OTP cho Teacher
         if (!data.organizationName || !data.address) {
           console.error("Missing required teacher fields");
           showError("Giáo viên phải nhập tên trường/tổ chức và địa chỉ");
@@ -157,28 +242,59 @@ export default function Register() {
           organizationName: data.organizationName,
           organizationAddress: data.address,
         };
-        console.log("Sending Teacher registration:", payload);
+        console.log("Sending OTP for Teacher:", payload);
 
-        const response = await authApi.registerTeacher(payload);
-        console.log("Teacher registration response:", response);
+        const response = await authApi.sendOTPTeacher(payload);
+        console.log("OTP sent response:", response);
 
-        success(
-          "✅ Đăng ký giáo viên thành công! Đang chuyển tới trang đăng nhập..."
-        );
-        setTimeout(() => navigate("/auth/login"), 1500);
+        success("✅ Mã OTP đã được gửi đến email của bạn!");
+        setRegistrationEmail(data.email);
+        setRegistrationRole("Teacher");
+        setShowOTPModal(true);
       }
     } catch (error: any) {
-      console.error("=== REGISTER ERROR ===");
-      console.error("Register error:", error);
+      console.error("=== SEND OTP ERROR ===");
+      console.error("Send OTP error:", error);
       console.error("Error response:", error?.response);
       console.error("Error data:", error?.response?.data);
       const errorMessage =
         error?.response?.data?.message ||
-        "❌ Đăng ký thất bại. Vui lòng thử lại.";
+        "❌ Gửi mã OTP thất bại. Vui lòng thử lại.";
       showError(errorMessage);
     } finally {
       console.log("=== FORM SUBMIT ENDED ===");
       setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (!otp || otp.length !== 6) {
+      showError("Vui lòng nhập mã OTP gồm 6 chữ số");
+      return;
+    }
+
+    setIsVerifyingOTP(true);
+    try {
+      let response;
+      if (registrationRole === "Student") {
+        response = await authApi.registerStudent(registrationEmail, otp);
+      } else {
+        response = await authApi.registerTeacher(registrationEmail, otp);
+      }
+
+      console.log("Registration completed:", response);
+      success("✅ Đăng ký thành công! Đang chuyển tới trang đăng nhập...");
+      setShowOTPModal(false);
+      setTimeout(() => navigate("/auth/login"), 1500);
+    } catch (error: any) {
+      console.error("=== VERIFY OTP ERROR ===");
+      console.error("Verify OTP error:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        "❌ Xác thực OTP thất bại. Vui lòng thử lại.";
+      showError(errorMessage);
+    } finally {
+      setIsVerifyingOTP(false);
     }
   };
 
@@ -404,6 +520,72 @@ export default function Register() {
           </div>
         </div>
       </div>
+
+      {/* OTP Modal */}
+      {showOTPModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 md:p-8">
+            <h3 className="text-2xl font-bold text-secondary-900 mb-2 text-center">
+              Xác thực OTP
+            </h3>
+            <p className="text-secondary-600 text-center mb-6">
+              Chúng tôi đã gửi mã xác thực đến email{" "}
+              <strong>{registrationEmail}</strong>
+            </p>
+
+            <div className="mb-6">
+              <Input
+                label="Mã OTP (6 chữ số)"
+                type="text"
+                placeholder="Nhập mã OTP"
+                value={otp}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setOtp(value);
+                }}
+                maxLength={6}
+                className="text-center text-2xl tracking-widest"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowOTPModal(false);
+                  setOtp("");
+                }}
+                disabled={isVerifyingOTP}
+              >
+                Hủy
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleVerifyOTP}
+                loading={isVerifyingOTP}
+                disabled={isVerifyingOTP || otp.length !== 6}
+              >
+                {isVerifyingOTP ? <Spinner size="sm" /> : "Xác nhận"}
+              </Button>
+            </div>
+
+            <p className="text-sm text-secondary-600 text-center mt-4">
+              Không nhận được mã?{" "}
+              <button
+                type="button"
+                className="text-primary-600 hover:text-primary-700 font-medium"
+                onClick={() => {
+                  setShowOTPModal(false);
+                  showError("Vui lòng gửi lại form đăng ký để nhận mã OTP mới");
+                }}
+              >
+                Gửi lại
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }

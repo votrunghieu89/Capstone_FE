@@ -3,6 +3,7 @@ import { apiClient } from "../libs/apiClient";
 // ============ TYPES ============
 
 export interface FavouriteQuizDTO {
+  favouriteId: number; // BE now returns this!
   quizId: number;
   title: string;
   avatarURL: string;
@@ -10,8 +11,6 @@ export interface FavouriteQuizDTO {
   topicName: string;
   totalParticipants: number;
   createdBy: string;
-  // Note: BE doesn't return favouriteId in the response
-  // We need to get it from the quizzFavourites table using accountId + quizId
 }
 
 // ============ FAVOURITE SERVICE ============
@@ -76,17 +75,17 @@ class FavouriteService {
   }
 
   /**
-   * Remove a quiz from favourites (by accountId and quizId)
-   * DELETE /api/Favourite/removeFavouriteQuizByAccountAndQuiz?accountId={accountId}&quizzId={quizzId}
+   * Remove a quiz from favourites in detail page (by accountId and quizId)
+   * DELETE /api/Favourite/removeFavouriteQuizInDetail?quizzID={quizzID}&accountId={accountId}
    */
-  async removeFavouriteQuizByAccountAndQuiz(
-    accountId: number,
-    quizzId: number
+  async removeFavouriteQuizInDetail(
+    quizzID: number,
+    accountId: number
   ): Promise<boolean> {
     const response = await apiClient.delete<boolean>(
-      `/Favourite/removeFavouriteQuizByAccountAndQuiz`,
+      `/Favourite/removeFavouriteQuizInDetail`,
       {
-        params: { accountId, quizzId },
+        params: { quizzID, accountId },
       }
     );
     return response;

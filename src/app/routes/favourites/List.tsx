@@ -146,7 +146,7 @@ export default function FavouriteQuizzes() {
     setPendingRemoveQuizId(null);
   };
 
-  const confirmRemoveFavourite = () => {
+  const confirmRemoveFavourite = async () => {
     if (pendingRemoveQuizId === null) return;
     const quizId = pendingRemoveQuizId;
 
@@ -166,13 +166,12 @@ export default function FavouriteQuizzes() {
       // Tạm thời xóa khỏi UI (optimistic update)
       setFavouriteQuizzes((prev) => prev.filter((q) => q.quizId !== quizId));
 
-      toast.success("Đã xóa khỏi danh sách yêu thích");
+      closeRemoveConfirm();
 
-      // TODO: Khi BE thêm endpoint removeFavouriteQuizByAccountAndQuiz
-      // await favouriteService.removeFavouriteQuizByAccountAndQuiz(
-      //   accountId,
-      //   quizId
-      // );
+      // Gọi API xóa thực sự
+      await favouriteService.removeFavouriteQuizInDetail(quizId, accountId);
+
+      toast.success("✅ Đã xóa quiz khỏi danh sách yêu thích!");
     } catch (err: any) {
       console.error("Error removing favourite:", err);
       // Rollback nếu có lỗi
@@ -180,6 +179,7 @@ export default function FavouriteQuizzes() {
       toast.error(errorMsg);
 
       setFavouriteQuizzes(previousQuizzes);
+      closeRemoveConfirm();
     }
   };
 

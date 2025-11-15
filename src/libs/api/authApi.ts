@@ -15,26 +15,54 @@ export const authApi = {
   },
 
   /**
-   * Register new student
+   * Send OTP for student registration
    */
-  async registerStudent(
+  async sendOTPStudent(
     data: RegisterStudentRequest
   ): Promise<{ message: string }> {
     return await apiClient.post<{ message: string }>(
-      "/Auth/registerStudent",
+      "/Auth/send_otp_student",
       data
     );
   },
 
   /**
-   * Register new teacher
+   * Send OTP for teacher registration
    */
-  async registerTeacher(
+  async sendOTPTeacher(
     data: RegisterTeacherRequest
   ): Promise<{ message: string }> {
     return await apiClient.post<{ message: string }>(
-      "/Auth/registerTeacher",
+      "/Auth/send_otp_teacher",
       data
+    );
+  },
+
+  /**
+   * Register new student with OTP
+   */
+  async registerStudent(
+    email: string,
+    otp: string
+  ): Promise<{ message: string }> {
+    return await apiClient.post<{ message: string }>(
+      `/Auth/registerStudent?email=${encodeURIComponent(
+        email
+      )}&otp=${encodeURIComponent(otp)}`
+    );
+  },
+
+  /**
+   * Register new teacher with OTP
+   */
+  async registerTeacher(
+    email: string,
+    otp: string
+  ): Promise<{ message: string }> {
+    return await apiClient.post<{ message: string }>(
+      `/Auth/registerTeacher?email=${encodeURIComponent(
+        email
+      )}&otp=${encodeURIComponent(otp)}`
     );
   },
 
@@ -130,7 +158,7 @@ export const authApi = {
    */
   async googleLoginStudent(idToken: string): Promise<LoginResponse> {
     return await apiClient.post<LoginResponse>("/Auth/googleLoginStudent", {
-      idToken,
+      IdToken: idToken,
     });
   },
 
@@ -139,7 +167,7 @@ export const authApi = {
    */
   async googleLoginTeacher(idToken: string): Promise<LoginResponse> {
     return await apiClient.post<LoginResponse>("/Auth/googleLoginTeacher", {
-      idToken,
+      IdToken: idToken,
     });
   },
 

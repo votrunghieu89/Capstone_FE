@@ -83,8 +83,16 @@ export default function ForgotPassword() {
         <div className="auth-blob auth-blob-3" />
         <div className="w-full max-w-md relative z-10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <Logo size="lg" />
+            <div
+              className="inline-flex items-center justify-center mb-4 cursor-pointer"
+              onClick={() => {
+                console.log("Logo clicked - navigating to home");
+                navigate("/");
+              }}
+            >
+              <div className="pointer-events-none">
+                <Logo size="lg" />
+              </div>
             </div>
             <h1 className="text-3xl font-extrabold text-white mb-2">
               Quên mật khẩu?

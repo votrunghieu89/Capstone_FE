@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -27,6 +27,18 @@ export default function Login() {
   const navigate = useNavigate();
   const { toasts, success, error: showError, removeToast } = useToast();
 
+  // Debug: Log toasts whenever they change
+  useEffect(() => {
+    console.log("📋 Toasts state changed:", toasts);
+  }, [toasts]);
+
+  // Debug: Test toast on mount
+  // useEffect(() => {
+  //   setTimeout(() => {
+  //     showError("Test error message");
+  //   }, 1000);
+  // }, []);
+
   const {
     register,
     handleSubmit,
@@ -38,27 +50,111 @@ export default function Login() {
   // Handle Google Login (default to Student role)
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
+
+    // Wait for Google SDK to load
+    let retries = 0;
+    const maxRetries = 10;
+
+    while (retries < maxRetries) {
+      // @ts-ignore
+      if (window.google?.accounts?.id) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      retries++;
+    }
+
     try {
-      // Initialize Google OAuth
       // @ts-ignore
       const google = window.google;
-      if (!google) {
+      if (!google?.accounts?.id) {
         showError("Google OAuth chưa được tải. Vui lòng thử lại sau.");
+        setIsGoogleLoading(false);
         return;
       }
 
-      // Show Google One Tap or redirect to Google OAuth
-      showError("Chức năng đang phát triển. Vui lòng sử dụng email/password.");
+      console.log("Initializing Google Sign-In...");
+      console.log("Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
-      // TODO: Implement Google OAuth flow
-      // When you get idToken from Google:
-      // const { user, response } = await handleGoogleAuth(idToken, "Student");
-      // success("✅ Đăng nhập thành công!");
-      // setTimeout(() => navigate(getRedirectPath(response.role)), 1000);
+      // Use Google Sign-In with popup instead of One Tap
+      const handleGoogleResponse = async (response: any) => {
+        try {
+          const idToken = response.credential;
+          console.log("Google ID Token received");
+
+          // Try Student first, then Teacher if fails
+          try {
+            const { response: authResponse } = await handleGoogleAuth(
+              idToken,
+              "Student"
+            );
+            success("✅ Đăng nhập thành công!");
+            setTimeout(
+              () => navigate(getRedirectPath(authResponse.role)),
+              1000
+            );
+          } catch (studentError: any) {
+            console.log("Student login failed, trying Teacher...");
+            const { response: authResponse } = await handleGoogleAuth(
+              idToken,
+              "Teacher"
+            );
+            success("✅ Đăng nhập thành công!");
+            setTimeout(
+              () => navigate(getRedirectPath(authResponse.role)),
+              1000
+            );
+          }
+        } catch (error: any) {
+          console.error("Google auth error:", error);
+          showError(
+            error?.response?.data?.message ||
+              "❌ Đăng nhập Google thất bại. Vui lòng đăng ký trước."
+          );
+        } finally {
+          setIsGoogleLoading(false);
+        }
+      };
+
+      // Initialize with callback
+      google.accounts.id.initialize({
+        client_id:
+          import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+        callback: handleGoogleResponse,
+      });
+
+      // Create a temporary container for Google button
+      const tempDiv = document.createElement("div");
+      tempDiv.style.display = "none";
+      document.body.appendChild(tempDiv);
+
+      // Render Google button and auto-click it
+      google.accounts.id.renderButton(tempDiv, {
+        type: "standard",
+        size: "large",
+        width: 250,
+      });
+
+      console.log("Triggering Google Sign-In...");
+      // Auto-click the button
+      setTimeout(() => {
+        const googleButton = tempDiv.querySelector(
+          'div[role="button"]'
+        ) as HTMLElement;
+        if (googleButton) {
+          googleButton.click();
+          // Clean up after a short delay
+          setTimeout(() => document.body.removeChild(tempDiv), 1000);
+        } else {
+          console.error("Google button not found");
+          showError("❌ Không thể khởi tạo Google Sign-In");
+          setIsGoogleLoading(false);
+          document.body.removeChild(tempDiv);
+        }
+      }, 100);
     } catch (error: any) {
       console.error("Google login error:", error);
-      showError(error.response?.data?.message || "Đăng nhập Google thất bại.");
-    } finally {
+      showError("❌ Đăng nhập Google thất bại: " + (error.message || ""));
       setIsGoogleLoading(false);
     }
   };
@@ -130,11 +226,39 @@ export default function Login() {
         }
       }, 1000);
     } catch (error: any) {
+      console.log("=================");
+      console.log("LOGIN ERROR CAUGHT");
+      console.log("=================");
       console.error("Login error:", error);
-      const errorMessage =
-        error?.response?.data?.message ||
+      console.error("Error response:", error?.response);
+      console.error("Error data:", error?.response?.data);
+      console.error("Error status:", error?.response?.status);
+
+      let errorMessage =
         "❌ Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.";
+
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.status === 401) {
+        errorMessage = "❌ Email hoặc mật khẩu không chính xác.";
+      } else if (error?.response?.status === 404) {
+        errorMessage = "❌ Tài khoản không tồn tại.";
+      } else if (error?.code === "ERR_NETWORK") {
+        errorMessage =
+          "❌ Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối.";
+      }
+
+      console.log("=== CALLING showError ===");
+      console.log("Error message:", errorMessage);
+      console.log("Current toasts:", toasts);
+
+      // Force show error immediately
       showError(errorMessage);
+
+      // Debug after a short delay to see if state updated
+      setTimeout(() => {
+        console.log("After showError (delayed), toasts:", toasts);
+      }, 100);
     } finally {
       setIsLoading(false);
     }
@@ -162,12 +286,9 @@ export default function Login() {
         <div className="w-full max-w-3xl relative z-10">
           {/* Header */}
           <div className="text-center mb-6">
-            <Link
-              to="/"
-              className="inline-flex items-center justify-center mb-4"
-            >
+            <div className="flex justify-center mb-4">
               <Logo size="lg" />
-            </Link>
+            </div>
             <p className="text-white/90 text-lg">
               Nền tảng học tập tương tác số 1 Việt Nam
             </p>

@@ -19,12 +19,32 @@ class ApiClient {
     // Request interceptor
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem("access_token");
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-          console.log("Request with token:", token.substring(0, 20) + "...");
-        } else {
-          console.warn("No token found for request:", config.url);
+        // Public endpoints that don't need authentication
+        const publicEndpoints = [
+          "/Auth/login",
+          "/Auth/registerStudent",
+          "/Auth/registerTeacher",
+          "/Auth/send_otp_student",
+          "/Auth/send_otp_teacher",
+          "/Auth/checkEmail",
+          "/Auth/verifyOTP",
+          "/Auth/resetPasswordOTP",
+          "/Auth/googleLoginStudent",
+          "/Auth/googleLoginTeacher",
+        ];
+
+        const isPublicEndpoint = publicEndpoints.some((endpoint) =>
+          config.url?.includes(endpoint)
+        );
+
+        if (!isPublicEndpoint) {
+          const token = localStorage.getItem("access_token");
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+            console.log("Request with token:", token.substring(0, 20) + "...");
+          } else {
+            console.warn("No token found for request:", config.url);
+          }
         }
         return config;
       },
@@ -89,12 +109,29 @@ class ApiClient {
               throw new Error("No refresh token");
             }
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, clear tokens
             console.error("Token refresh failed:", refreshError);
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");
-            window.location.href = "/auth/login";
+
+            // Only redirect if not on public pages
+            const publicPaths = [
+              "/",
+              "/auth/login",
+              "/auth/register",
+              "/auth/forgot",
+              "/browse",
+              "/quiz/preview",
+            ];
+            const currentPath = window.location.pathname;
+            const isPublicPage = publicPaths.some((path) =>
+              currentPath.startsWith(path)
+            );
+
+            if (!isPublicPage) {
+              window.location.href = "/auth/login";
+            }
           }
         }
 
