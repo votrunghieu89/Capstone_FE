@@ -53,7 +53,13 @@ const quizSchema = z.object({
   topicId: z.string().min(1, "Vui lòng chọn chủ đề"),
   isPrivate: z.boolean(),
   folderId: z.string().optional(),
-  avatarUrl: z.string().url("URL ảnh không hợp lệ").optional(),
+  avatarUrl: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || val === "" || z.string().url().safeParse(val).success,
+      { message: "URL ảnh không hợp lệ" }
+    ),
   questions: z.array(questionSchema).min(1, "Phải có ít nhất 1 câu hỏi"),
 });
 
@@ -119,6 +125,7 @@ export default function EditQuiz() {
     watch,
     setValue,
     reset,
+    trigger,
   } = useForm<QuizForm>({
     resolver: zodResolver(quizSchema),
     defaultValues: {
@@ -248,10 +255,12 @@ export default function EditQuiz() {
         console.log("📡 quizResponse", quizResponse);
         console.log("📚 topicsResponse =", topicsResponse);
         console.log("🗂️ foldersResponse =", foldersResponse);
+
+        const rawTopics = topicsResponse.data || topicsResponse;
         setTopics(
-          topicsResponse.data.map((t: any) => ({
-            id: t.TopicId.toString(),
-            name: t.TopicName,
+          (Array.isArray(rawTopics) ? rawTopics : []).map((t: any) => ({
+            id: (t.topicId || t.TopicId).toString(),
+            name: t.topicName || t.TopicName,
           }))
         );
 
@@ -283,15 +292,15 @@ export default function EditQuiz() {
         }
         const mappedQuestions: Question[] = realQuizData.questions.map(
           (q: any) => ({
-            id: q.quizId?.toString() || "",
+            id: q.questionId?.toString() || "",
             content: q.questionContent,
             questionType: mapQuestionTypeToForm(q.questionType),
-            timeLimit: q.timeLimit,
+            timeLimit: q.time,
             points: q.score,
             options: q.options.map((o: any) => ({
               id: o.optionId.toString() || o.id?.toString() || "",
               content: o.optionContent,
-              isCorrect: o.IsCorrect,
+              isCorrect: o.isCorrect,
             })),
           })
         );
@@ -335,7 +344,8 @@ export default function EditQuiz() {
       const updatedQuestions = [...questions];
       updatedQuestions[editingQuestionIndex] = question;
       setQuestions(updatedQuestions);
-      setValue("questions", updatedQuestions);
+      setValue("questions", updatedQuestions, { shouldValidate: true });
+      trigger("questions"); // Trigger validation
       setEditingQuestionIndex(null);
     } else {
       const updatedQuestions = [
@@ -343,7 +353,8 @@ export default function EditQuiz() {
         { ...question, id: Date.now().toString() },
       ];
       setQuestions(updatedQuestions);
-      setValue("questions", updatedQuestions);
+      setValue("questions", updatedQuestions, { shouldValidate: true });
+      trigger("questions"); // Trigger validation
     }
     setShowAddQuestion(false);
     setCurrentQuestion(null);
@@ -359,7 +370,8 @@ export default function EditQuiz() {
     if (confirm("Bạn có chắc muốn xóa câu hỏi này?")) {
       const updatedQuestions = questions.filter((_, i) => i !== index);
       setQuestions(updatedQuestions);
-      setValue("questions", updatedQuestions);
+      setValue("questions", updatedQuestions, { shouldValidate: true });
+      trigger("questions"); // Trigger validation
     }
   };
   // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
@@ -369,8 +381,17 @@ export default function EditQuiz() {
       const user = storage.getUser();
       const teacherId = user?.id;
 
-      if (quizId || !teacherId)
+      if (!quizId || !teacherId)
         throw new Error("Thông tin giáo viên không hợp lệ.");
+
+      // Kiểm tra questions từ form data thay vì state
+      const formQuestions = data.questions || questions;
+
+      if (!formQuestions || formQuestions.length === 0) {
+        alert("Vui lòng thêm ít nhất 1 câu hỏi!");
+        setIsSaving(false);
+        return;
+      }
 
       // 1. Chuẩn bị Payload UPDATE
       const finalPayload = {
@@ -384,35 +405,57 @@ export default function EditQuiz() {
         AvartarURL: data.avatarUrl || "",
         UpdateAt: new Date().toISOString(),
 
-        // Chuyển đổi questions/options sang PascalCase/Mã rút gọn
-        Questions: questions.map((q) => ({
-          QuestionId: parseInt(q.id, 10), // Giữ lại ID nếu là câu hỏi cũ
-          QuestionType: mapQuestionTypeToPayload(q.questionType),
-          QuestionContent: q.content,
-          Time: q.timeLimit,
-          Score: q.points,
-          IsDeleted: false, // Giả định false, trừ khi có logic xóa phức tạp
-          UpdateAt: new Date().toISOString(),
-          Options: q.options.map((opt) => ({
-            OptionId: parseInt(opt.id, 10), // Giữ lại ID nếu là đáp án cũ
-            OptionContent: opt.content,
-            IsCorrect: opt.isCorrect,
-            IsDeleted: false, // Giả định false
+        // Chuyển đổi questions/options sang PascalCase/Mã rút gọn - sử dụng formQuestions
+        Questions: formQuestions.map((q: any) => {
+          const questionId = parseInt(q.id, 10);
+          // Nếu ID > 1 tỷ (timestamp) hoặc NaN, đây là câu hỏi MỚI → QuestionId = 0
+          const isNewQuestion = isNaN(questionId) || questionId > 1000000000;
+
+          return {
+            QuestionId: isNewQuestion ? 0 : questionId,
+            QuestionType: mapQuestionTypeToPayload(q.questionType),
+            QuestionContent: q.content,
+            Time: q.timeLimit,
+            Score: q.points,
+            IsDeleted: false,
             UpdateAt: new Date().toISOString(),
-          })),
-        })),
+            Options: q.options.map((opt: any) => {
+              const optionId = parseInt(opt.id, 10);
+              const isNewOption = isNaN(optionId) || optionId > 1000000000;
+
+              return {
+                OptionId: isNewOption ? 0 : optionId,
+                OptionContent: opt.content,
+                IsCorrect: opt.isCorrect,
+                IsDeleted: false,
+                UpdateAt: new Date().toISOString(),
+              };
+            }),
+          };
+        }),
       };
 
-      const response = await apiClient.put(
-        `/api/Quiz/updateQuiz`,
-        finalPayload
-      );
+      console.log("📤 Payload gửi lên BE:", finalPayload);
 
+      const response = await apiClient.put(`Quiz/updateQuiz`, finalPayload);
+
+      console.log("✅ Response từ BE:", response);
       alert("Cập nhật quiz thành công!");
       navigate("/teacher/folders"); // Chuyển hướng về trang quản lý folders
-    } catch (error) {
-      console.error("Error updating quiz:", error);
-      alert("Có lỗi xảy ra khi cập nhật quiz. Vui lòng thử lại!");
+    } catch (error: any) {
+      console.error("❌ Error updating quiz:", error);
+      console.error("📋 Full error object:", error);
+      console.error("🔴 Response status:", error.response?.status);
+      console.error("🔴 Response data:", error.response?.data);
+      console.error("🔴 Response headers:", error.response?.headers);
+      
+      // Hiển thị chi tiết lỗi từ BE
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data 
+        || error.message 
+        || "Lỗi không xác định";
+      
+      alert(`Lỗi BE: ${JSON.stringify(errorMessage, null, 2)}`);
     } finally {
       setIsSaving(false);
     }
@@ -460,7 +503,26 @@ export default function EditQuiz() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        <form
+          onSubmit={handleSubmit((data) => {
+            console.log("🚀 Form submit triggered!");
+            console.log("📝 Form data:", data);
+            console.log("❌ Form errors:", errors);
+
+            // Kiểm tra validation errors trước khi submit
+            if (Object.keys(errors).length > 0) {
+              console.error(
+                "⚠️ Form có lỗi validation, không thể submit:",
+                errors
+              );
+              alert("Vui lòng sửa các lỗi trong form trước khi lưu!");
+              return;
+            }
+
+            return onSubmit(data);
+          })}
+          className="space-y-8"
+        >
           {/* Quiz Information */}
           <div className="card">
             <div className="card-header">
@@ -477,6 +539,10 @@ export default function EditQuiz() {
                   {...register("title")}
                   placeholder="Nhập tiêu đề quiz..."
                   error={errors.title?.message}
+                  onChange={(e) => {
+                    console.log("✏️ Title changed:", e.target.value);
+                    register("title").onChange(e);
+                  }}
                 />
               </div>
 
