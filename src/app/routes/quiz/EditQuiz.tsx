@@ -30,26 +30,6 @@ import { TopNavbar } from "../../../components/layout/TopNavbar";
 import { Footer } from "../../../components/layout/Footer";
 import { Spinner } from "../../../components/common/Spinner";
 
-const questionSchema = z.object({
-  id: z.string().optional(),
-  content: z.string().min(5, "Nội dung câu hỏi phải có ít nhất 5 ký tự"),
-  questionType: z.enum(["MultipleChoice", "TrueFalse"]),
-  timeLimit: z
-    .number()
-    .min(10, "Thời gian tối thiểu 10 giây")
-    .max(300, "Thời gian tối đa 300 giây"),
-  points: z.number().min(1, "Điểm tối thiểu 1").max(100, "Điểm tối đa 100"),
-  options: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        content: z.string().min(1, "Nội dung đáp án không được để trống"),
-        isCorrect: z.boolean(),
-      })
-    )
-    .min(2, "Phải có ít nhất 2 đáp án"),
-});
-
 const quizSchema = z.object({
   title: z.string().min(3, "Tiêu đề phải có ít nhất 3 ký tự"),
   description: z.string().optional(),
@@ -71,7 +51,7 @@ const quizSchema = z.object({
       },
       { message: "URL ảnh không hợp lệ" }
     ),
-  questions: z.array(questionSchema).min(1, "Phải có ít nhất 1 câu hỏi"),
+  questions: z.any(), // Bỏ hết validation cho questions
 });
 
 type QuizForm = z.infer<typeof quizSchema>;
@@ -153,18 +133,18 @@ export default function EditQuiz() {
   });
 
   const isPrivate = watch("isPrivate");
-  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (BE: MQC = Multiple Choice, TF = True/False)
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (BE: MCQ = Multiple Choice, TF = True/False)
   const mapQuestionTypeToForm = (
     type: string
   ): "MultipleChoice" | "TrueFalse" => {
-    return type === "MQC" ? "MultipleChoice" : "TrueFalse";
+    return type === "MCQ" ? "MultipleChoice" : "TrueFalse";
   };
 
-  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (FE → BE: MQC, TF)
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (FE → BE: MCQ, TF)
   const mapQuestionTypeToPayload = (
     type: "MultipleChoice" | "TrueFalse"
-  ): "MQC" | "TF" => {
-    return type === "MultipleChoice" ? "MQC" : "TF";
+  ): "MCQ" | "TF" => {
+    return type === "MultipleChoice" ? "MCQ" : "TF";
   };
 
   // Folder tree component for UI
@@ -525,7 +505,7 @@ export default function EditQuiz() {
         Description: data.description || "",
         IsPrivate: data.isPrivate,
         AvartarURL: finalAvatarUrl, // Dùng response từ BE, không thêm prefix
-        Questions: data.questions.map((q) => {
+        Questions: data.questions.map((q: any) => {
           const questionId =
             q.id &&
             q.id !== "0" &&
@@ -535,12 +515,17 @@ export default function EditQuiz() {
               : null;
 
           // Tạo object cho question, chỉ thêm QuestionId nếu có (không gửi null)
+          const mappedQuestionType = mapQuestionTypeToPayload(q.questionType); // MCQ hoặc TF
+          console.log(
+            `🔄 QuestionType: ${q.questionType} -> ${mappedQuestionType}`
+          );
+
           const questionPayload: any = {
-            QuestionType: mapQuestionTypeToPayload(q.questionType), // MQC hoặc TF
+            QuestionType: mappedQuestionType,
             QuestionContent: q.content,
             Time: q.timeLimit,
             Score: q.points,
-            Options: q.options.map((o) => {
+            Options: q.options.map((o: any) => {
               const optionId =
                 o.id &&
                 o.id !== "0" &&
@@ -576,10 +561,10 @@ export default function EditQuiz() {
       console.log("📤 Update payload:", updatePayload);
       console.log(
         "📤 Questions with IDs:",
-        data.questions.map((q) => ({
+        data.questions.map((q: any) => ({
           id: q.id,
           content: q.content.substring(0, 20),
-          options: q.options.map((o) => ({
+          options: q.options.map((o: any) => ({
             id: o.id,
             content: o.content.substring(0, 15),
           })),
@@ -812,97 +797,108 @@ export default function EditQuiz() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                <label
+                  htmlFor="thumbnail-upload"
+                  className="text-sm font-medium text-secondary-700 mb-2 block"
+                >
                   Ảnh bìa quiz
                 </label>
 
-                {(thumbnailPreview ||
+                {/* Vùng kéo thả và click chọn file */}
+                <div
+                  className="relative flex items-center justify-center w-full h-48 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (
+                      e.dataTransfer.files &&
+                      e.dataTransfer.files.length > 0
+                    ) {
+                      const file = e.dataTransfer.files[0];
+                      handleThumbnailChange({
+                        target: { files: [file] },
+                      } as any);
+                      e.dataTransfer.clearData();
+                    }
+                  }}
+                  onClick={() =>
+                    document.getElementById("thumbnail-upload")?.click()
+                  }
+                >
+                  {thumbnailPreview ||
                   originalAvatarUrl ||
-                  watch("avatarUrl")) && (
-                  <div className="mb-4 relative">
-                    <img
-                      src={
-                        thumbnailPreview ||
-                        (() => {
-                          // Ưu tiên dùng URL gốc từ BE nếu có
-                          if (originalAvatarUrl) {
-                            // Nếu URL gốc đã có full URL thì dùng trực tiếp
-                            if (
-                              originalAvatarUrl.startsWith("http://") ||
-                              originalAvatarUrl.startsWith("https://")
-                            ) {
-                              return originalAvatarUrl;
+                  watch("avatarUrl") ? (
+                    <>
+                      {/* Hiển thị preview nếu có ảnh */}
+                      <img
+                        src={
+                          thumbnailPreview ||
+                          (() => {
+                            if (originalAvatarUrl) {
+                              if (
+                                originalAvatarUrl.startsWith("http://") ||
+                                originalAvatarUrl.startsWith("https://")
+                              ) {
+                                return originalAvatarUrl;
+                              }
+                              return `https://localhost:7126/${originalAvatarUrl.replace(
+                                /^\/+/,
+                                ""
+                              )}`;
                             }
-                            // Nếu không, thêm base URL
-                            return `https://localhost:7126/${originalAvatarUrl.replace(
+                            const avatarUrl = watch("avatarUrl");
+                            if (!avatarUrl) return "";
+                            if (
+                              avatarUrl.startsWith("http://") ||
+                              avatarUrl.startsWith("https://")
+                            ) {
+                              return avatarUrl;
+                            }
+                            return `https://localhost:7126/${avatarUrl.replace(
                               /^\/+/,
                               ""
                             )}`;
-                          }
+                          })()
+                        }
+                        alt="Thumbnail Preview"
+                        className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                      />
+                      {/* Chỉ hiển thị nút X khi có ảnh mới upload */}
+                      {thumbnailPreview && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveThumbnail();
+                          }}
+                          className="absolute top-2 right-2 bg-error-600 text-white rounded-full p-2 hover:bg-error-700 transition-colors z-10"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    /* Nội dung mặc định khi chưa có ảnh */
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      <ImageIcon className="w-10 h-10 mb-3 text-gray-400" />
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Chọn ảnh bìa quiz</span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Kéo thả hoặc click để chọn file (PNG, JPG, GIF)
+                      </p>
+                    </div>
+                  )}
 
-                          // Fallback: dùng URL từ form
-                          const avatarUrl = watch("avatarUrl");
-                          if (!avatarUrl) return "";
-                          // Nếu đã có full URL thì dùng trực tiếp, nếu không thì thêm base URL
-                          if (
-                            avatarUrl.startsWith("http://") ||
-                            avatarUrl.startsWith("https://")
-                          ) {
-                            return avatarUrl;
-                          }
-                          // Nếu không có protocol, thêm base URL
-                          return `https://localhost:7126/${avatarUrl.replace(
-                            /^\/+/,
-                            ""
-                          )}`;
-                        })()
-                      }
-                      alt="Thumbnail"
-                      className="w-40 h-40 object-cover rounded-lg border-2 border-secondary-200"
-                    />
-                    {/* Chỉ hiển thị nút X khi có ảnh mới upload */}
-                    {thumbnailPreview && (
-                      <button
-                        type="button"
-                        onClick={handleRemoveThumbnail}
-                        className="absolute -top-2 -right-2 bg-error-600 text-white rounded-full p-1 hover:bg-error-700 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        document.getElementById("thumbnail-upload")?.click()
-                      }
-                      className="mt-2 w-full"
-                    >
-                      <ImageIcon className="w-4 h-4 mr-2" />
-                      Đổi ảnh
-                    </Button>
-                  </div>
-                )}
-
-                {!(thumbnailPreview || watch("avatarUrl")) && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      document.getElementById("thumbnail-upload")?.click()
-                    }
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Chọn ảnh
-                  </Button>
-                )}
-                <input
-                  id="thumbnail-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleThumbnailChange}
-                  className="hidden"
-                />
+                  {/* Input type="file" ẩn đi */}
+                  <input
+                    id="thumbnail-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleThumbnailChange}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center gap-3">
@@ -942,7 +938,10 @@ export default function EditQuiz() {
                 </h2>
                 {errors.questions && (
                   <p className="text-sm text-red-500 mt-1">
-                    {errors.questions.message}
+                    {typeof errors.questions === "object" &&
+                    "message" in errors.questions
+                      ? String(errors.questions.message)
+                      : "Vui lòng kiểm tra lại các câu hỏi"}
                   </p>
                 )}
               </div>
