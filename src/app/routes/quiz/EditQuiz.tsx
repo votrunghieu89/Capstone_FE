@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
@@ -30,6 +31,7 @@ import { Footer } from "../../../components/layout/Footer";
 import { Spinner } from "../../../components/common/Spinner";
 
 const questionSchema = z.object({
+  id: z.string().optional(),
   content: z.string().min(5, "Nội dung câu hỏi phải có ít nhất 5 ký tự"),
   questionType: z.enum(["MultipleChoice", "TrueFalse"]),
   timeLimit: z
@@ -40,6 +42,7 @@ const questionSchema = z.object({
   options: z
     .array(
       z.object({
+        id: z.string().optional(),
         content: z.string().min(1, "Nội dung đáp án không được để trống"),
         isCorrect: z.boolean(),
       })
@@ -118,6 +121,10 @@ export default function EditQuiz() {
   const [selectedFolderId, setSelectedFolderId] = useState<string>("");
   const [showFolderModal, setShowFolderModal] = useState(false);
 
+  // Thumbnail state
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -135,18 +142,18 @@ export default function EditQuiz() {
   });
 
   const isPrivate = watch("isPrivate");
-  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (Tương tự CreateQuiz)
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (BE: MQC = Multiple Choice, TF = True/False)
   const mapQuestionTypeToForm = (
     type: string
   ): "MultipleChoice" | "TrueFalse" => {
-    return type === "MTC" ? "MultipleChoice" : "TrueFalse";
+    return type === "MQC" ? "MultipleChoice" : "TrueFalse";
   };
 
-  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (Tương tự CreateQuiz)
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (FE → BE: MQC, TF)
   const mapQuestionTypeToPayload = (
     type: "MultipleChoice" | "TrueFalse"
-  ): "MTC" | "TF" => {
-    return type === "MultipleChoice" ? "MTC" : "TF";
+  ): "MQC" | "TF" => {
+    return type === "MultipleChoice" ? "MQC" : "TF";
   };
 
   // Folder tree component for UI
@@ -306,17 +313,31 @@ export default function EditQuiz() {
         );
 
         // ĐIỀN DỮ LIỆU VÀO FORM (HYDRATION)
+        // Normalize avatar URL: loại bỏ base URL nếu có để tránh duplicate
+        let normalizedAvatarUrl = realQuizData.avatarURL || "";
+        if (normalizedAvatarUrl && normalizedAvatarUrl.includes("localhost:7126/")) {
+          // Lấy phần sau cùng (QuizImage/xxx.jpg)
+          const parts = normalizedAvatarUrl.split("localhost:7126/");
+          normalizedAvatarUrl = parts[parts.length - 1];
+        }
+        
         reset({
           title: realQuizData.title,
           description: realQuizData.description,
           topicId: realQuizData.topicId?.toString(),
           isPrivate: realQuizData.isPrivate,
           folderId: realQuizData.folderId?.toString() || "",
-          avatarUrl: realQuizData.avatarURL,
+          avatarUrl: normalizedAvatarUrl,
           questions: mappedQuestions,
         });
 
         setQuestions(mappedQuestions); // Đồng bộ hóa state questions
+
+        // Set thumbnail preview nếu có ảnh từ BE
+        if (realQuizData.avatarURL) {
+          setThumbnailPreview(null); // Clear file preview, chỉ dùng URL từ BE
+          setThumbnailFile(null);
+        }
 
         // Set selected folder for UI
         if (realQuizData.folderId) {
@@ -350,7 +371,7 @@ export default function EditQuiz() {
     } else {
       const updatedQuestions = [
         ...questions,
-        { ...question, id: Date.now().toString() },
+        { ...question, id: "0" }, // ID = 0 cho câu hỏi mới
       ];
       setQuestions(updatedQuestions);
       setValue("questions", updatedQuestions, { shouldValidate: true });
@@ -374,88 +395,124 @@ export default function EditQuiz() {
       trigger("questions"); // Trigger validation
     }
   };
-  // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
+
+  // Thumbnail handlers
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbnailFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveThumbnail = () => {
+    // Chỉ xóa preview của ảnh mới upload, giữ nguyên ảnh cũ từ BE
+    if (thumbnailPreview) {
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      // Không set avatarUrl = "" để giữ nguyên ảnh cũ
+    }
+  };
+
   const onSubmit = async (data: QuizForm) => {
     try {
       setIsSaving(true);
-      const user = storage.getUser();
-      const teacherId = user?.id;
 
-      if (!quizId || !teacherId)
-        throw new Error("Thông tin giáo viên không hợp lệ.");
+      console.log("🔍 Debug onSubmit:");
+      console.log("  - data.avatarUrl:", data.avatarUrl);
+      console.log("  - thumbnailFile:", thumbnailFile);
+      console.log("  - thumbnailPreview:", thumbnailPreview);
 
-      // Kiểm tra questions từ form data thay vì state
-      const formQuestions = data.questions || questions;
+      let finalAvatarUrl = data.avatarUrl || "";
 
-      if (!formQuestions || formQuestions.length === 0) {
-        alert("Vui lòng thêm ít nhất 1 câu hỏi!");
-        setIsSaving(false);
-        return;
+      // 1. Nếu có ảnh mới được chọn, gọi API updateImage trước
+      if (thumbnailFile) {
+        const formData = new FormData();
+        formData.append("QuizId", quizId!);
+        formData.append("AvatarURL", thumbnailFile);
+
+        const imageResponse = (await apiClient.put(
+          "/Quiz/updateImage",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        )) as any;
+
+        // Lấy imageUrl từ response
+        finalAvatarUrl = imageResponse?.imageUrl || "";
+        console.log("✅ Upload image thành công:", finalAvatarUrl);
       }
 
-      // 1. Chuẩn bị Payload UPDATE
-      const finalPayload = {
-        QuizId: parseInt(quizId!, 10), // Bắt buộc phải có QuizId để update
-        //TeacherId: parseInt(teacherId, 10),
-        FolderId: data.folderId ? parseInt(data.folderId, 10) : 0,
-        TopicId: parseInt(data.topicId, 10),
+      // 2. Chuẩn bị payload cho API updateQuiz
+      const updatePayload = {
+        QuizId: Number(quizId),
+        FolderId: data.folderId ? Number(data.folderId) : 0,
+        TopicId: data.topicId ? Number(data.topicId) : null,
         Title: data.title,
         Description: data.description || "",
         IsPrivate: data.isPrivate,
-        AvartarURL: data.avatarUrl || "",
-        UpdateAt: new Date().toISOString(),
-
-        // Chuyển đổi questions/options sang PascalCase/Mã rút gọn - sử dụng formQuestions
-        Questions: formQuestions.map((q: any) => {
-          const questionId = parseInt(q.id, 10);
-          // Nếu ID > 1 tỷ (timestamp) hoặc NaN, đây là câu hỏi MỚI → QuestionId = 0
-          const isNewQuestion = isNaN(questionId) || questionId > 1000000000;
-
+        AvartarURL: finalAvatarUrl, // Dùng response từ BE, không thêm prefix
+        Questions: data.questions.map((q) => {
+          const questionId = q.id && q.id !== "0" && !q.id.startsWith("new-") && !isNaN(Number(q.id)) 
+            ? Number(q.id) 
+            : null;
+          
           return {
-            QuestionId: isNewQuestion ? 0 : questionId,
-            QuestionType: mapQuestionTypeToPayload(q.questionType),
+            QuestionId: questionId,
+            QuestionType: mapQuestionTypeToPayload(q.questionType), // MQC hoặc TF
             QuestionContent: q.content,
             Time: q.timeLimit,
             Score: q.points,
-            IsDeleted: false,
-            UpdateAt: new Date().toISOString(),
-            Options: q.options.map((opt: any) => {
-              const optionId = parseInt(opt.id, 10);
-              const isNewOption = isNaN(optionId) || optionId > 1000000000;
-
+            Options: q.options.map((o) => {
+              const optionId = o.id && o.id !== "0" && !o.id.startsWith("new-") && !isNaN(Number(o.id))
+                ? Number(o.id)
+                : null;
+              
               return {
-                OptionId: isNewOption ? 0 : optionId,
-                OptionContent: opt.content,
-                IsCorrect: opt.isCorrect,
-                IsDeleted: false,
-                UpdateAt: new Date().toISOString(),
+                OptionId: optionId,
+                OptionContent: o.content,
+                IsCorrect: o.isCorrect,
               };
             }),
           };
         }),
       };
 
-      console.log("📤 Payload gửi lên BE:", finalPayload);
+      console.log("📤 Update payload:", updatePayload);
+      console.log("📤 Questions with IDs:", data.questions.map(q => ({ 
+        id: q.id, 
+        content: q.content.substring(0, 20),
+        options: q.options.map(o => ({ id: o.id, content: o.content.substring(0, 15) }))
+      })));
 
-      const response = await apiClient.put(`Quiz/updateQuiz`, finalPayload);
+      // 3. Gọi API updateQuiz
+      await apiClient.put("/Quiz/updateQuiz", updatePayload);
 
-      console.log("✅ Response từ BE:", response);
+      console.log("✅ Update quiz thành công");
       alert("Cập nhật quiz thành công!");
-      navigate("/teacher/folders"); // Chuyển hướng về trang quản lý folders
+
+      // Trở về trang thư mục, truyền folderId để tự động mở folder đó
+      navigate("/teacher/folders", {
+        state: {
+          openFolderId: data.folderId,
+          updatedQuizId: quizId,
+        },
+      });
     } catch (error: any) {
       console.error("❌ Error updating quiz:", error);
-      console.error("📋 Full error object:", error);
-      console.error("🔴 Response status:", error.response?.status);
-      console.error("🔴 Response data:", error.response?.data);
-      console.error("🔴 Response headers:", error.response?.headers);
-      
-      // Hiển thị chi tiết lỗi từ BE
-      const errorMessage = error.response?.data?.message 
-        || error.response?.data 
-        || error.message 
-        || "Lỗi không xác định";
-      
-      alert(`Lỗi BE: ${JSON.stringify(errorMessage, null, 2)}`);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data ||
+        error.message ||
+        "Có lỗi xảy ra khi cập nhật quiz!";
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -507,6 +564,7 @@ export default function EditQuiz() {
           onSubmit={handleSubmit((data) => {
             console.log("🚀 Form submit triggered!");
             console.log("📝 Form data:", data);
+            console.log("📝 Questions state:", questions);
             console.log("❌ Form errors:", errors);
 
             // Kiểm tra validation errors trước khi submit
@@ -519,7 +577,13 @@ export default function EditQuiz() {
               return;
             }
 
-            return onSubmit(data);
+            // Đảm bảo questions được sync từ state
+            if (questions.length === 0) {
+              alert("Vui lòng thêm ít nhất 1 câu hỏi!");
+              return;
+            }
+
+            return onSubmit({ ...data, questions });
           })}
           className="space-y-8"
         >
@@ -539,10 +603,6 @@ export default function EditQuiz() {
                   {...register("title")}
                   placeholder="Nhập tiêu đề quiz..."
                   error={errors.title?.message}
-                  onChange={(e) => {
-                    console.log("✏️ Title changed:", e.target.value);
-                    register("title").onChange(e);
-                  }}
                 />
               </div>
 
@@ -644,12 +704,60 @@ export default function EditQuiz() {
 
               <div>
                 <label className="block text-sm font-medium text-secondary-700 mb-2">
-                  URL ảnh bìa
+                  Ảnh bìa quiz
                 </label>
-                <Input
-                  {...register("avatarUrl")}
-                  placeholder="https://example.com/image.jpg"
-                  error={errors.avatarUrl?.message}
+
+                {(thumbnailPreview || watch("avatarUrl")) && (
+                  <div className="mb-4 relative">
+                    <img
+                      src={thumbnailPreview || (watch("avatarUrl")?.startsWith("http") 
+                        ? watch("avatarUrl") 
+                        : `https://localhost:7126/${watch("avatarUrl")}`)}
+                      alt="Thumbnail"
+                      className="w-40 h-40 object-cover rounded-lg border-2 border-secondary-200"
+                    />
+                    {/* Chỉ hiển thị nút X khi có ảnh mới upload */}
+                    {thumbnailPreview && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveThumbnail}
+                        className="absolute -top-2 -right-2 bg-error-600 text-white rounded-full p-1 hover:bg-error-700 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        document.getElementById("thumbnail-upload")?.click()
+                      }
+                      className="mt-2 w-full"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      Đổi ảnh
+                    </Button>
+                  </div>
+                )}
+
+                {!(thumbnailPreview || watch("avatarUrl")) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      document.getElementById("thumbnail-upload")?.click()
+                    }
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Chọn ảnh
+                  </Button>
+                )}
+                <input
+                  id="thumbnail-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailChange}
+                  className="hidden"
                 />
               </div>
 
@@ -784,9 +892,9 @@ export default function EditQuiz() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {question.options.map((option) => (
+                        {question.options.map((option, optIdx) => (
                           <div
-                            key={option.id}
+                            key={`${option.id}-${optIdx}`}
                             className={`p-2 rounded border ${
                               option.isCorrect
                                 ? "bg-green-50 border-green-300"
@@ -937,15 +1045,15 @@ function QuestionModal({ question, onSave, onClose }: QuestionModalProps) {
   const [points, setPoints] = useState(question?.points || 10);
   const [options, setOptions] = useState<Option[]>(
     question?.options || [
-      { id: "1", content: "", isCorrect: false },
-      { id: "2", content: "", isCorrect: false },
+      { id: "new-1", content: "", isCorrect: false },
+      { id: "new-2", content: "", isCorrect: false },
     ]
   );
 
   const handleAddOption = () => {
     setOptions([
       ...options,
-      { id: Date.now().toString(), content: "", isCorrect: false },
+      { id: `new-${Date.now()}`, content: "", isCorrect: false },
     ]);
   };
 
@@ -987,12 +1095,12 @@ function QuestionModal({ question, onSave, onClose }: QuestionModalProps) {
     }
 
     const newQuestion: Question = {
-      id: question?.id || Date.now().toString(),
+      id: question?.id || "0",
       content,
       questionType,
       timeLimit,
       points,
-      options,
+      options: options, // Giữ nguyên ID để không bị trùng key khi render
     };
 
     onSave(newQuestion);

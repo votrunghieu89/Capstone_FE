@@ -338,17 +338,17 @@ export default function CreateQuiz() {
       avatarURL = uploadResponse.imageUrl;
       console.log("LOG 3: File uploaded. URL:", avatarURL);
 
-      // 3. Build payload
+      // 3. Build payload (tất cả field phải PascalCase theo DTO của BE)
       const payload = {
-        TeacherId: parseInt(teacherId, 10), // Sử dụng PascalCase cho thuộc tính chính
+        TeacherId: parseInt(teacherId, 10),
         TopicId: parseInt(data.topicId, 10),
         FolderId: data.folderId ? parseInt(data.folderId, 10) : 0,
-        title: data.title,
-        description: data.description || "",
-        isPrivate: data.isPrivate,
-        avatarURL: avatarURL || "",
-        numberOfPlays: 0, // Bắt buộc là số
-        createdAt: new Date().toISOString(),
+        Title: data.title,
+        Description: data.description || "",
+        IsPrivate: data.isPrivate,
+        AvatarURL: avatarURL || "",
+        NumberOfPlays: 0,
+        CreatedAt: new Date().toISOString(),
         Questions: questions.map((q) => ({
           QuestionType: mapQuestionType(q.questionType),
           QuestionContent: q.content,
@@ -362,11 +362,7 @@ export default function CreateQuiz() {
       };
       // 4. Gọi API tạo quiz
       console.log("LOG 4: Attempting to create quiz...");
-      const quizData = {
-        imageUrl: avatarURL,
-        // thêm các trường khác nếu cần
-      };
-      console.log("Payload tạo quiz:", quizData);
+      console.log("📤 Payload tạo quiz:", payload);
       const response = (await apiClient.post(
         "/Quiz/createQuiz",
         payload
