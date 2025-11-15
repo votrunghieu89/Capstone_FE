@@ -198,7 +198,7 @@ export default function Landing() {
                                         className="w-full"
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            navigate(`/quiz/preview/${q.quizId}`);
+                                            navigate(`/quiz/preview/${q.quizId}`, { state: { from: '/' } });
                                         }}
                                     >
                                         Xem chi tiết

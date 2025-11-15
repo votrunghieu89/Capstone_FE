@@ -94,7 +94,11 @@ export const TopNavbar: React.FC = () => {
                   <>
                     <button
                       className="w-full text-left px-3 py-2 rounded-md hover:bg-secondary-50 text-sm"
-                      onClick={() => navigate("/profile")}
+                      onClick={() =>
+                        navigate("/profile", {
+                          state: { from: window.location.pathname },
+                        })
+                      }
                     >
                       <UserIcon className="w-4 h-4 mr-2 inline" /> Hồ sơ
                     </button>

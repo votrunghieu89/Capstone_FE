@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +54,9 @@ type TeacherForm = z.infer<typeof teacherSchema>;
 type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 
 export default function Profile() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const previousPath = location.state?.from || "/";
   const [isLoading, setIsLoading] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -232,7 +236,7 @@ export default function Profile() {
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                onClick={() => window.history.back()}
+                onClick={() => navigate(previousPath)}
                 className="p-2"
               >
                 <ArrowLeft className="w-5 h-5" />
@@ -380,7 +384,7 @@ export default function Profile() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => window.history.back()}
+                      onClick={() => navigate(previousPath)}
                     >
                       Hủy
                     </Button>

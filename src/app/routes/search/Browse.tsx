@@ -170,7 +170,11 @@ export default function BrowseQuizzes() {
               title={quiz.title}
               questionCount={18}
               plays={quiz.numberOfPlays}
-              onDetail={() => navigate(`/quiz/preview/${quiz.id}`)}
+              onDetail={() =>
+                navigate(`/quiz/preview/${quiz.id}`, {
+                  state: { from: "/search" },
+                })
+              }
             />
           ))}
         </div>

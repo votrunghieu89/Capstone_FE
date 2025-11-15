@@ -113,7 +113,11 @@ export const StudentSidebar: React.FC = () => {
             variant="ghost"
             size="sm"
             className="w-full justify-start"
-            onClick={() => navigate("/profile")}
+            onClick={() =>
+              navigate("/profile", {
+                state: { from: window.location.pathname },
+              })
+            }
           >
             <Settings className="w-4 h-4 mr-2" />
             Cài đặt

@@ -11,6 +11,7 @@ import {
 } from "../../../services/favouriteService";
 import { toast } from "react-hot-toast";
 import { ConfirmDialog } from "../../../components/common/ConfirmDialog";
+import { apiClient } from "../../../libs/apiClient";
 
 export default function FavouriteQuizzes() {
   const navigate = useNavigate();
@@ -20,6 +21,9 @@ export default function FavouriteQuizzes() {
   const [favouriteQuizzes, setFavouriteQuizzes] = useState<FavouriteQuizDTO[]>(
     []
   );
+  const [allTopics, setAllTopics] = useState<
+    { topicId: number; topicName: string }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -34,6 +38,27 @@ export default function FavouriteQuizzes() {
   console.log("Has id:", currentUser?.id);
 
   const didFetchRef = useRef(false);
+
+  // Fetch all topics from API
+  useEffect(() => {
+    const fetchAllTopics = async () => {
+      try {
+        const topicsData = await apiClient.get<any[]>("/Topic/getAllTopic");
+        const topicsList = (Array.isArray(topicsData) ? topicsData : []).map(
+          (t: any) => ({
+            topicId: t.topicId || t.id,
+            topicName: t.topicName || t.name,
+          })
+        );
+        setAllTopics(topicsList);
+      } catch (err) {
+        console.error("Error fetching topics:", err);
+        // Không set error vì không ảnh hưởng đến việc hiển thị trang
+      }
+    };
+
+    fetchAllTopics();
+  }, []);
 
   // Fetch favourite quizzes from API
   useEffect(() => {
@@ -124,10 +149,13 @@ export default function FavouriteQuizzes() {
     fetchFavouriteQuizzes();
   }, [currentUser?.accountId]);
 
-  // Get unique topics from quizzes
+  // Get all topics from API and sort
   const topics = [
     "Tất cả",
-    ...Array.from(new Set(favouriteQuizzes.map((q) => q.topicName))),
+    ...allTopics
+      .map((t) => t.topicName)
+      .filter((topic) => topic && topic.trim() !== "")
+      .sort((a, b) => a.localeCompare(b, "vi")),
   ];
 
   const filteredQuizzes = favouriteQuizzes.filter((quiz) => {
@@ -273,7 +301,9 @@ export default function FavouriteQuizzes() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
             <p className="text-lg font-medium text-secondary-900">
-              {filteredQuizzes.length} quiz yêu thích
+              {selectedTopic === "all"
+                ? `${filteredQuizzes.length} quiz yêu thích`
+                : `${filteredQuizzes.length} quiz yêu thích - ${selectedTopic}`}
             </p>
           </div>
           <div className="w-full sm:w-auto">
@@ -318,13 +348,17 @@ export default function FavouriteQuizzes() {
           <div className="text-center py-12">
             <Heart className="w-16 h-16 text-secondary-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-secondary-900 mb-2">
-              Chưa có quiz yêu thích nào
+              {selectedTopic === "all"
+                ? "Chưa có quiz yêu thích nào"
+                : `Chưa có quiz yêu thích nào thuộc chủ đề "${selectedTopic}"`}
             </h3>
             <p className="text-secondary-600 mb-6">
-              Thêm quiz vào yêu thích để dễ dàng truy cập sau này
+              {selectedTopic === "all"
+                ? "Thêm quiz vào yêu thích để dễ dàng truy cập sau này"
+                : "Thử chọn chủ đề khác hoặc thêm quiz vào yêu thích"}
             </p>
             <button
-              onClick={() => navigate("/browse")}
+              onClick={() => navigate("/")}
               className="btn-primary px-6 py-2 inline-flex items-center"
             >
               <Heart className="w-4 h-4 mr-2" />

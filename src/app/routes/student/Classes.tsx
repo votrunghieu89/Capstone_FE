@@ -162,7 +162,9 @@ export default function StudentClasses() {
   // Preview page will show quiz details with "Bắt đầu làm Quiz" button
   // (No "Tổ chức Live" button for students - that's teacher only)
   const handleStartQuiz = (quizId: number) => {
-    navigate(`/quiz/preview/${quizId}`);
+    navigate(`/quiz/preview/${quizId}`, {
+      state: { from: "/student/classes" },
+    });
   };
 
   return (
@@ -460,11 +462,11 @@ export default function StudentClasses() {
                       Quiz đã giao
                     </h3>
                     <div className="flex flex-col min-h-[60vh]">
-                    {detailQuizzes.length === 0 ? (
-                      <p className="text-sm text-secondary-500 text-center py-8">
-                        Chưa có quiz nào được giao
-                      </p>
-                    ) : (
+                      {detailQuizzes.length === 0 ? (
+                        <p className="text-sm text-secondary-500 text-center py-8">
+                          Chưa có quiz nào được giao
+                        </p>
+                      ) : (
                         <div className="space-y-3 flex-1">
                           {detailQuizzes
                             .slice(
@@ -472,75 +474,76 @@ export default function StudentClasses() {
                               detailQuizPage * detailQuizzesPerPage
                             )
                             .map((quiz) => (
-                          <div
-                            key={quiz.qgId}
-                            className="card border border-secondary-200"
-                          >
-                            <div className="card-content p-4">
-                              <div className="flex items-start gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                                  <BookOpen className="w-5 h-5 text-primary-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                      <h4 className="font-semibold text-secondary-900 leading-tight truncate">
-                                    {quiz.title}
-                                  </h4>
-                                  {quiz.message && (
-                                        <p className="text-sm text-secondary-600 line-clamp-1">
-                                      {quiz.message}
-                                    </p>
-                                  )}
+                              <div
+                                key={quiz.qgId}
+                                className="card border border-secondary-200"
+                              >
+                                <div className="card-content p-4">
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                      <BookOpen className="w-5 h-5 text-primary-600" />
                                     </div>
-                                    <Button
-                                      size="sm"
-                                      onClick={() =>
-                                        handleStartQuiz(
-                                          quiz.deliveredQuiz?.quizId ||
-                                            quiz.quizId
-                                        )
-                                      }
-                                    >
-                                      <Play className="w-4 h-4 mr-2" />
-                                      Làm bài
-                                    </Button>
-                                  </div>
-
-                                  {/* Meta compact */}
-                                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
-                                    <span>GV: {quiz.teacherName}</span>
-                                    <span>•</span>
-                                    <span>
-                                      Giao:{" "}
-                                      {new Date(
-                                        quiz.dateCreated
-                                      ).toLocaleDateString("vi-VN")}
-                                    </span>
-                                  {quiz.expiredDate && (
-                                      <span className="flex items-center gap-1 text-error-600">
-                                        <Calendar className="w-3 h-3" />
-                                      Hết hạn:{" "}
-                                      {new Date(
-                                        quiz.expiredDate
-                                      ).toLocaleDateString("vi-VN")}
-                                      </span>
-                                  )}
-                                  {quiz.maxAttempts !== undefined &&
-                                    quiz.maxAttempts !== null && (
-                                        <span className="flex items-center gap-1">
-                                          <RotateCcw className="w-3 h-3" />
-                                        Số lần làm: {quiz.maxAttempts || 0}
-                                        </span>
-                                      )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                          <h4 className="font-semibold text-secondary-900 leading-tight truncate">
+                                            {quiz.title}
+                                          </h4>
+                                          {quiz.message && (
+                                            <p className="text-sm text-secondary-600 line-clamp-1">
+                                              {quiz.message}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <Button
+                                          size="sm"
+                                          onClick={() =>
+                                            handleStartQuiz(
+                                              quiz.deliveredQuiz?.quizId ||
+                                                quiz.quizId
+                                            )
+                                          }
+                                        >
+                                          <Play className="w-4 h-4 mr-2" />
+                                          Làm bài
+                                        </Button>
                                       </div>
+
+                                      {/* Meta compact */}
+                                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
+                                        <span>GV: {quiz.teacherName}</span>
+                                        <span>•</span>
+                                        <span>
+                                          Giao:{" "}
+                                          {new Date(
+                                            quiz.dateCreated
+                                          ).toLocaleDateString("vi-VN")}
+                                        </span>
+                                        {quiz.expiredDate && (
+                                          <span className="flex items-center gap-1 text-error-600">
+                                            <Calendar className="w-3 h-3" />
+                                            Hết hạn:{" "}
+                                            {new Date(
+                                              quiz.expiredDate
+                                            ).toLocaleDateString("vi-VN")}
+                                          </span>
+                                        )}
+                                        {quiz.maxAttempts !== undefined &&
+                                          quiz.maxAttempts !== null && (
+                                            <span className="flex items-center gap-1">
+                                              <RotateCcw className="w-3 h-3" />
+                                              Số lần làm:{" "}
+                                              {quiz.maxAttempts || 0}
+                                            </span>
+                                          )}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                            ))}
+                        </div>
+                      )}
 
                       {detailQuizzes.length > detailQuizzesPerPage && (
                         <div className="mt-6 py-3 flex items-center justify-center gap-2">

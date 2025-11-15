@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { apiClient } from "../../../libs/apiClient";
-import { storage } from '../../../libs/storage';
+import { storage } from "../../../libs/storage";
 
 import {
   Plus,
@@ -16,6 +16,11 @@ import {
   Target,
   Eye,
   EyeOff,
+  Folder,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
@@ -71,14 +76,14 @@ interface Question {
 
 // ✅ INTERFACE CHO DỮ LIỆU TẢI VỀ (Sử dụng camelCase thực tế từ API)
 interface QuizDetailResponse {
-    quizId: number;
-    title: string;
-    description: string;
-    topicId: number;
-    isPrivate: boolean;
-    folderId?: number | null;
-    avatarURL?: string;
-    questions: any[]; // Mảng câu hỏi thực tế
+  quizId: number;
+  title: string;
+  description: string;
+  topicId: number;
+  isPrivate: boolean;
+  folderId?: number | null;
+  avatarURL?: string;
+  questions: any[]; // Mảng câu hỏi thực tế
 }
 
 export default function EditQuiz() {
@@ -93,9 +98,20 @@ export default function EditQuiz() {
     number | null
   >(null);
   const [topics, setTopics] = useState<{ id: string; name: string }[]>([]);
-  const [folders, setFolders] = useState<
-    { id: string; name: string; parentId: string | null }[]
-  >([]);
+
+  // Folder structure for tree view
+  interface FolderTree {
+    id: string;
+    name: string;
+    folders?: FolderTree[];
+  }
+  const [folders, setFolders] = useState<FolderTree[]>([]);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("");
+  const [showFolderModal, setShowFolderModal] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -112,125 +128,207 @@ export default function EditQuiz() {
   });
 
   const isPrivate = watch("isPrivate");
-// ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (Tương tự CreateQuiz)
-  const mapQuestionTypeToForm = (type: string): "MultipleChoice" | "TrueFalse" => {
+  // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE (Tương tự CreateQuiz)
+  const mapQuestionTypeToForm = (
+    type: string
+  ): "MultipleChoice" | "TrueFalse" => {
     return type === "MTC" ? "MultipleChoice" : "TrueFalse";
   };
-  
+
   // ✅ HÀM CHUYỂN ĐỔI QUESTION TYPE TỪ FORM (Tương tự CreateQuiz)
-  const mapQuestionTypeToPayload = (type: "MultipleChoice" | "TrueFalse"): "MTC" | "TF" => {
+  const mapQuestionTypeToPayload = (
+    type: "MultipleChoice" | "TrueFalse"
+  ): "MTC" | "TF" => {
     return type === "MultipleChoice" ? "MTC" : "TF";
   };
-  
-  // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
-  const renderFolderOptions = () => {
-    const result: JSX.Element[] = [];
 
-    const renderFolder = (folderId: string | null, level: number) => {
-      const subfolders = folders.filter((f) => f.parentId === folderId);
-      subfolders.forEach((folder) => {
-        const indent = "\u00A0\u00A0".repeat(level * 2); 
-        result.push(
-          <option key={folder.id} value={folder.id}>
-            {indent}
-            {level > 0 ? "└─ " : ""}
-            {folder.name}
-          </option>
-        );
-        renderFolder(folder.id, level + 1);
-      });
+  // Folder tree component for UI
+  const FolderTreeItem = ({
+    folder,
+    level = 0,
+  }: {
+    folder: FolderTree;
+    level?: number;
+  }) => {
+    const isExpanded = expandedFolders.has(folder.id);
+    const hasChildren = folder.folders && folder.folders.length > 0;
+    const isSelected = selectedFolderId === folder.id;
+
+    const toggleFolder = () => {
+      const newExpanded = new Set(expandedFolders);
+      if (isExpanded) {
+        newExpanded.delete(folder.id);
+      } else {
+        newExpanded.add(folder.id);
+      }
+      setExpandedFolders(newExpanded);
     };
 
-    renderFolder(null, 0);
-    return result;
+    return (
+      <div>
+        <div className="flex items-stretch">
+          {hasChildren && (
+            <button
+              type="button"
+              onClick={toggleFolder}
+              className="flex items-center justify-center w-8 hover:bg-secondary-100 rounded transition-colors"
+              style={{ marginLeft: `${level * 20}px` }}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFolderId(folder.id);
+              setValue("folderId", folder.id);
+            }}
+            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+              isSelected
+                ? "bg-primary-600 text-white"
+                : "hover:bg-secondary-100 text-secondary-900"
+            }`}
+            style={{ marginLeft: hasChildren ? "0" : `${level * 20 + 32}px` }}
+          >
+            {isExpanded ? (
+              <FolderOpen className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Folder className="w-4 h-4 flex-shrink-0" />
+            )}
+            <span className="flex-1 truncate text-sm font-medium">
+              {folder.name}
+            </span>
+          </button>
+        </div>
+
+        {isExpanded && hasChildren && (
+          <div className="mt-1 space-y-1">
+            {folder.folders!.map((subFolder) => (
+              <FolderTreeItem
+                key={subFolder.id}
+                folder={subFolder}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
-  
 
   // Load quiz data
   useEffect(() => {
     const loadData = async () => {
-        const user = storage.getUser();
-        const teacherId = user?.id; 
+      const user = storage.getUser();
+      const teacherId = user?.id;
 
-        if (!quizId || !teacherId) {
-            setIsLoading(false);
-            alert("Thiếu Quiz ID hoặc Teacher ID. Vui lòng kiểm tra đăng nhập.");
-            return;
+      if (!quizId || !teacherId) {
+        setIsLoading(false);
+        alert("Thiếu Quiz ID hoặc Teacher ID. Vui lòng kiểm tra đăng nhập.");
+        return;
+      }
+      try {
+        // 1. TẢI DỮ LIỆU SETUP (TOPICS VÀ FOLDERS)
+        const [topicsResponse, foldersResponse, quizResponse] =
+          await Promise.all([
+            apiClient.get("/Topic/getAllTopic") as any,
+
+            apiClient.get(
+              `/TeacherFolder/getAllFolder?teacherID=${teacherId}`
+            ) as any,
+
+            apiClient.get(`Quiz/getDetailOfATeacherQuiz/${quizId}`) as any,
+          ]);
+
+        console.log("📡 quizResponse", quizResponse);
+        console.log("📚 topicsResponse =", topicsResponse);
+        console.log("🗂️ foldersResponse =", foldersResponse);
+        setTopics(
+          topicsResponse.data.map((t: any) => ({
+            id: t.TopicId.toString(),
+            name: t.TopicName,
+          }))
+        );
+
+        // Keep nested folder structure for tree view
+        const convertToFolderTree = (folderList: any[]): FolderTree[] => {
+          return folderList.map((f: any) => ({
+            id: (f.folderId || f.FolderId).toString(),
+            name: f.folderName || f.FolderName,
+            folders:
+              f.folders && Array.isArray(f.folders) && f.folders.length > 0
+                ? convertToFolderTree(f.folders)
+                : undefined,
+          }));
+        };
+
+        const rawFolders = foldersResponse.data || foldersResponse;
+        const folderTree = convertToFolderTree(
+          Array.isArray(rawFolders) ? rawFolders : []
+        );
+        setFolders(folderTree);
+
+        // 2. XỬ LÝ VÀ HYDRATE DỮ LIỆU QUIZ
+        const realQuizData = quizResponse as QuizDetailResponse;
+        if (!realQuizData || !realQuizData.questions) {
+          // Thay 'quiz' bằng thuộc tính chứa dữ liệu chi tiết, ở đây là kiểm tra 'realQuizData' và mảng 'Questions'
+          console.error("Quiz không tồn tại hoặc dữ liệu lỗi:", realQuizData);
+          setIsLoading(false);
+          return;
         }
-        try {
-            // 1. TẢI DỮ LIỆU SETUP (TOPICS VÀ FOLDERS)
-            const [topicsResponse, foldersResponse, quizResponse] = await Promise.all([
-                apiClient.get("/Topic/getAllTopic") as any,
-               
-                apiClient.get(`/TeacherFolder/getAllFolder?teacherID=${teacherId}`) as any, 
-               
-                apiClient.get(`Quiz/getDetailOfATeacherQuiz/${quizId}`) as any,
-            ]);
+        const mappedQuestions: Question[] = realQuizData.questions.map(
+          (q: any) => ({
+            id: q.quizId?.toString() || "",
+            content: q.questionContent,
+            questionType: mapQuestionTypeToForm(q.questionType),
+            timeLimit: q.timeLimit,
+            points: q.score,
+            options: q.options.map((o: any) => ({
+              id: o.optionId.toString() || o.id?.toString() || "",
+              content: o.optionContent,
+              isCorrect: o.IsCorrect,
+            })),
+          })
+        );
 
-          console.log("📡 quizResponse", quizResponse);
-          console.log("📚 topicsResponse =", topicsResponse);
-          console.log("🗂️ foldersResponse =", foldersResponse);
-            setTopics(
-                topicsResponse.data.map((t: any) => ({
-                    id: t.TopicId.toString(),
-                    name: t.TopicName,
-                }))
-            );
-            setFolders(
-                foldersResponse.data.map((f: any) => ({
-                    id: f.FolderId.toString(),
-                    name: f.FolderName,
-                    parentId: f.ParentFolderId ? f.ParentFolderId.toString() : null,
-                }))
-            );
-            
-            // 2. XỬ LÝ VÀ HYDRATE DỮ LIỆU QUIZ
-           const realQuizData = quizResponse as QuizDetailResponse;
-                  if (!realQuizData || !realQuizData.questions) { // Thay 'quiz' bằng thuộc tính chứa dữ liệu chi tiết, ở đây là kiểm tra 'realQuizData' và mảng 'Questions'
-                    console.error("Quiz không tồn tại hoặc dữ liệu lỗi:", realQuizData);
-                    setIsLoading(false);
-                    return;
-                }
-            const mappedQuestions: Question[] = realQuizData.questions.map((q: any) => ({
-                id: q.quizId?.toString() || '',
-                content: q.questionContent,
-                questionType: mapQuestionTypeToForm(q.questionType), 
-                timeLimit: q.timeLimit,
-                points: q.score,
-                options: q.options.map((o: any) => ({
-                    id: o.optionId.toString()||o.id?.toString() || '',
-                    content: o.optionContent,
-                    isCorrect: o.IsCorrect,
-                })),
-            }));
+        // ĐIỀN DỮ LIỆU VÀO FORM (HYDRATION)
+        reset({
+          title: realQuizData.title,
+          description: realQuizData.description,
+          topicId: realQuizData.topicId?.toString(),
+          isPrivate: realQuizData.isPrivate,
+          folderId: realQuizData.folderId?.toString() || "",
+          avatarUrl: realQuizData.avatarURL,
+          questions: mappedQuestions,
+        });
 
-            // ĐIỀN DỮ LIỆU VÀO FORM (HYDRATION)
-            reset({
-                title: realQuizData.title,
-                description: realQuizData.description,
-                topicId: realQuizData.topicId?.toString(),
-                isPrivate: realQuizData.isPrivate,
-                folderId: realQuizData.folderId?.toString() || "",
-                avatarUrl: realQuizData.avatarURL,
-                questions: mappedQuestions, 
-            });
+        setQuestions(mappedQuestions); // Đồng bộ hóa state questions
 
-            setQuestions(mappedQuestions); // Đồng bộ hóa state questions
-
-        } catch (error) {
-            console.error("Error loading quiz:", error);
-            alert("Không thể tải dữ liệu quiz. Vui lòng kiểm tra API getQuizDetail.");
-        } finally {
-            setIsLoading(false);
+        // Set selected folder for UI
+        if (realQuizData.folderId) {
+          setSelectedFolderId(realQuizData.folderId.toString());
         }
+      } catch (error) {
+        console.error("Error loading quiz:", error);
+        alert(
+          "Không thể tải dữ liệu quiz. Vui lòng kiểm tra API getQuizDetail."
+        );
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     if (quizId) {
-        loadData();
+      loadData();
     } else {
-        setIsLoading(false);
+      setIsLoading(false);
     }
-}, [quizId, reset]);
+  }, [quizId, reset]);
 
   const handleAddQuestion = (question: Question) => {
     if (editingQuestionIndex !== null) {
@@ -240,7 +338,10 @@ export default function EditQuiz() {
       setValue("questions", updatedQuestions);
       setEditingQuestionIndex(null);
     } else {
-      const updatedQuestions = [...questions, { ...question, id: Date.now().toString() }];
+      const updatedQuestions = [
+        ...questions,
+        { ...question, id: Date.now().toString() },
+      ];
       setQuestions(updatedQuestions);
       setValue("questions", updatedQuestions);
     }
@@ -264,52 +365,56 @@ export default function EditQuiz() {
   // ✅ HÀM RENDER FOLDER (Tương tự CreateQuiz)
   const onSubmit = async (data: QuizForm) => {
     try {
-        setIsSaving(true);
-        const user = storage.getUser();
-        const teacherId = user?.id; 
+      setIsSaving(true);
+      const user = storage.getUser();
+      const teacherId = user?.id;
 
-        if (quizId||!teacherId) throw new Error("Thông tin giáo viên không hợp lệ.");
-        
-        // 1. Chuẩn bị Payload UPDATE
-        const finalPayload = {
-            QuizId: parseInt(quizId!, 10), // Bắt buộc phải có QuizId để update
-            //TeacherId: parseInt(teacherId, 10), 
-            FolderId: data.folderId ? parseInt(data.folderId, 10) : 0, 
-            TopicId: parseInt(data.topicId, 10),
-            Title: data.title, 
-            Description: data.description || "", 
-            IsPrivate: data.isPrivate, 
-            AvartarURL: data.avatarUrl || "", 
+      if (quizId || !teacherId)
+        throw new Error("Thông tin giáo viên không hợp lệ.");
+
+      // 1. Chuẩn bị Payload UPDATE
+      const finalPayload = {
+        QuizId: parseInt(quizId!, 10), // Bắt buộc phải có QuizId để update
+        //TeacherId: parseInt(teacherId, 10),
+        FolderId: data.folderId ? parseInt(data.folderId, 10) : 0,
+        TopicId: parseInt(data.topicId, 10),
+        Title: data.title,
+        Description: data.description || "",
+        IsPrivate: data.isPrivate,
+        AvartarURL: data.avatarUrl || "",
+        UpdateAt: new Date().toISOString(),
+
+        // Chuyển đổi questions/options sang PascalCase/Mã rút gọn
+        Questions: questions.map((q) => ({
+          QuestionId: parseInt(q.id, 10), // Giữ lại ID nếu là câu hỏi cũ
+          QuestionType: mapQuestionTypeToPayload(q.questionType),
+          QuestionContent: q.content,
+          Time: q.timeLimit,
+          Score: q.points,
+          IsDeleted: false, // Giả định false, trừ khi có logic xóa phức tạp
+          UpdateAt: new Date().toISOString(),
+          Options: q.options.map((opt) => ({
+            OptionId: parseInt(opt.id, 10), // Giữ lại ID nếu là đáp án cũ
+            OptionContent: opt.content,
+            IsCorrect: opt.isCorrect,
+            IsDeleted: false, // Giả định false
             UpdateAt: new Date().toISOString(),
-            
-            // Chuyển đổi questions/options sang PascalCase/Mã rút gọn
-            Questions: questions.map((q) => ({
-                QuestionId: parseInt(q.id, 10), // Giữ lại ID nếu là câu hỏi cũ
-                QuestionType: mapQuestionTypeToPayload(q.questionType), 
-                QuestionContent: q.content,
-                Time: q.timeLimit,
-                Score: q.points,
-                IsDeleted: false, // Giả định false, trừ khi có logic xóa phức tạp
-                UpdateAt: new Date().toISOString(),
-                Options: q.options.map((opt) => ({
-                    OptionId: parseInt(opt.id, 10), // Giữ lại ID nếu là đáp án cũ
-                    OptionContent: opt.content,
-                    IsCorrect: opt.isCorrect,
-                    IsDeleted: false, // Giả định false
-                    UpdateAt: new Date().toISOString(),
-                })),
-            })),
-        };
+          })),
+        })),
+      };
 
-        const response = await apiClient.put(`/api/Quiz/updateQuiz`, finalPayload); 
+      const response = await apiClient.put(
+        `/api/Quiz/updateQuiz`,
+        finalPayload
+      );
 
-        alert("Cập nhật quiz thành công!");
-        navigate("/teacher/folders"); // Chuyển hướng về trang quản lý folders
+      alert("Cập nhật quiz thành công!");
+      navigate("/teacher/folders"); // Chuyển hướng về trang quản lý folders
     } catch (error) {
-        console.error("Error updating quiz:", error);
-        alert("Có lỗi xảy ra khi cập nhật quiz. Vui lòng thử lại!");
+      console.error("Error updating quiz:", error);
+      alert("Có lỗi xảy ra khi cập nhật quiz. Vui lòng thử lại!");
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -414,17 +519,60 @@ export default function EditQuiz() {
                   <label className="block text-sm font-medium text-secondary-700 mb-2">
                     Thư mục
                   </label>
-                  <select
-                    {...register("folderId")}
-                    className="w-full px-4 py-2 border border-secondary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  >
-                    <option value="">Không có thư mục</option>
-                    {folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </option>
-                    ))}
-                  </select>
+                  {selectedFolderId ? (
+                    <div className="flex items-center justify-between bg-success-50 border border-success-200 rounded-lg p-3">
+                      <div className="flex items-center gap-2">
+                        <Folder className="w-4 h-4 text-success-700" />
+                        <span className="text-sm text-success-900 font-medium">
+                          {(() => {
+                            const findFolder = (
+                              folders: FolderTree[],
+                              id: string
+                            ): string | null => {
+                              for (const f of folders) {
+                                if (f.id === id) return f.name;
+                                if (f.folders) {
+                                  const found = findFolder(f.folders, id);
+                                  if (found) return found;
+                                }
+                              }
+                              return null;
+                            };
+                            return findFolder(folders, selectedFolderId);
+                          })()}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowFolderModal(true)}
+                          className="text-xs text-primary-600 hover:text-primary-700 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
+                        >
+                          Đổi
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFolderId("");
+                            setValue("folderId", "");
+                          }}
+                          className="text-success-600 hover:text-success-700 hover:bg-success-100 rounded p-1 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowFolderModal(true)}
+                      className="w-full justify-start"
+                    >
+                      <Folder className="w-4 h-4 mr-2" />
+                      Chọn thư mục
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -624,6 +772,72 @@ export default function EditQuiz() {
       </main>
 
       <Footer />
+
+      {/* Folder Selection Modal */}
+      <Modal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        title="Chọn thư mục"
+      >
+        <div className="space-y-4">
+          {folders.length === 0 ? (
+            <p className="text-sm text-secondary-500 text-center py-8">
+              Không có thư mục nào
+            </p>
+          ) : (
+            <>
+              <div className="border rounded-lg p-2 max-h-96 overflow-y-auto bg-secondary-50">
+                <div className="space-y-1">
+                  {folders.map((folder) => (
+                    <FolderTreeItem key={folder.id} folder={folder} />
+                  ))}
+                </div>
+              </div>
+              {selectedFolderId && (
+                <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+                  <p className="text-sm text-success-900">
+                    ✓ Đã chọn:{" "}
+                    <span className="font-semibold">
+                      {(() => {
+                        const findFolder = (
+                          folders: FolderTree[],
+                          id: string
+                        ): string | null => {
+                          for (const f of folders) {
+                            if (f.id === id) return f.name;
+                            if (f.folders) {
+                              const found = findFolder(f.folders, id);
+                              if (found) return found;
+                            }
+                          }
+                          return null;
+                        };
+                        return findFolder(folders, selectedFolderId);
+                      })()}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowFolderModal(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowFolderModal(false)}
+              disabled={!selectedFolderId}
+            >
+              Xác nhận
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Add/Edit Question Modal */}
       {showAddQuestion && (

@@ -33,7 +33,7 @@ export default function JoinByPin() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Navigate to shared lobby (public route, no role restriction)
-      navigate(`/lobby/${pinCode}`);
+      navigate(`/lobby/${pinCode}`, { state: { from: "/play/join" } });
     } catch (error) {
       console.error("Join session error:", error);
     } finally {

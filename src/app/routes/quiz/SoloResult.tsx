@@ -75,7 +75,9 @@ export default function SoloResult() {
   };
 
   const handlePlayAgain = () => {
-    navigate(`/quiz/preview/${quizId}`);
+    navigate(`/quiz/preview/${quizId}`, {
+      state: { from: `/quiz/result/${quizId}` },
+    });
   };
 
   const handleGoHome = () => {

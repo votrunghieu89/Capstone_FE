@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   FolderPlus,
   Folder,
+  FolderOpen,
   Plus,
   MoreVertical,
   Edit,
@@ -14,6 +15,7 @@ import {
   Loader2,
   LayoutGrid,
   List,
+  FolderInput,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
@@ -45,6 +47,12 @@ export default function TeacherFolders() {
   const [folderToDelete, setFolderToDelete] = useState<FolderType | null>(null);
   const [showDeleteQuizModal, setShowDeleteQuizModal] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
+  const [showMoveQuizModal, setShowMoveQuizModal] = useState(false);
+  const [quizToMove, setQuizToMove] = useState<Quiz | null>(null);
+  const [targetFolderId, setTargetFolderId] = useState<number | null>(null);
+  const [moveModalExpandedFolders, setMoveModalExpandedFolders] = useState<
+    Set<number>
+  >(new Set());
 
   // Data from API
   const [folders, setFolders] = useState<FolderType[]>([]);
@@ -193,6 +201,61 @@ export default function TeacherFolders() {
       }
     }
     return null;
+  };
+
+  // Helper function to get all parent folder IDs
+  const getParentFolderIds = (
+    folders: FolderType[],
+    targetFolderId: number,
+    parents: number[] = []
+  ): number[] => {
+    for (const folder of folders) {
+      if (folder.folderId === targetFolderId) {
+        return parents;
+      }
+      if (folder.folders && folder.folders.length > 0) {
+        const found = getParentFolderIds(folder.folders, targetFolderId, [
+          ...parents,
+          folder.folderId,
+        ]);
+        if (
+          found.length > 0 ||
+          folder.folders.some((f) => f.folderId === targetFolderId)
+        ) {
+          return found.length > 0 ? found : [...parents, folder.folderId];
+        }
+      }
+    }
+    return [];
+  };
+
+  // Function to expand all parent folders when clicking a folder
+  const expandToFolder = (folderId: number) => {
+    const parentIds = getParentFolderIds(folders, folderId);
+    const newExpanded = new Set(expandedFolders);
+    parentIds.forEach((id) => newExpanded.add(id));
+    setExpandedFolders(newExpanded);
+  };
+
+  // Handler for folder selection with auto-expand
+  const handleSelectFolder = (folderId: number) => {
+    expandToFolder(folderId);
+    setSelectedFolder(folderId);
+  };
+
+  // Flatten folders for dropdown selection
+  const flattenFolders = (
+    folderList: FolderType[],
+    level: number = 0
+  ): Array<{ folder: FolderType; level: number }> => {
+    let result: Array<{ folder: FolderType; level: number }> = [];
+    folderList.forEach((folder) => {
+      result.push({ folder, level });
+      if (folder.folders && folder.folders.length > 0) {
+        result = result.concat(flattenFolders(folder.folders, level + 1));
+      }
+    });
+    return result;
   };
 
   // Get root folders (folders without parent)
@@ -387,6 +450,47 @@ export default function TeacherFolders() {
     setOpenQuizMenuId(null);
   };
 
+  const handleMoveQuiz = (quiz: Quiz, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setQuizToMove(quiz);
+    setTargetFolderId(null);
+    setShowMoveQuizModal(true);
+    setOpenQuizMenuId(null);
+  };
+
+  const confirmMoveQuiz = async () => {
+    if (quizToMove && targetFolderId !== null) {
+      try {
+        setLoading(true);
+        await folderService.moveQuizToFolder({
+          quizId:
+            typeof quizToMove.quizzId === "string"
+              ? parseInt(quizToMove.quizzId)
+              : quizToMove.quizzId,
+          folderId: targetFolderId,
+        });
+
+        toast.success("Di chuyển quiz thành công!");
+        setShowMoveQuizModal(false);
+        setQuizToMove(null);
+        setTargetFolderId(null);
+        setMoveModalExpandedFolders(new Set());
+
+        // Refresh quiz list
+        if (selectedFolder) {
+          await fetchFolderDetail(selectedFolder);
+        }
+      } catch (error: any) {
+        console.error("Error moving quiz:", error);
+        const errorMessage =
+          error.response?.data?.message || "Không thể di chuyển quiz";
+        toast.error(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   const confirmDeleteQuiz = async () => {
     if (quizToDelete) {
       try {
@@ -433,7 +537,7 @@ export default function TeacherFolders() {
                   : "text-secondary-700 hover:bg-secondary-50"
               }`}
               style={{ paddingLeft: `${12 + level * 16}px` }}
-              onClick={() => setSelectedFolder(folder.folderId)}
+              onClick={() => handleSelectFolder(folder.folderId)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -509,7 +613,7 @@ export default function TeacherFolders() {
         >
           <div
             className="h-28 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 flex items-center justify-center relative cursor-pointer"
-            onClick={() => setSelectedFolder(folder.folderId)}
+            onClick={() => handleSelectFolder(folder.folderId)}
           >
             <Folder className="w-14 h-14 text-blue-500 opacity-80" />
             <div className="absolute top-3 right-3">
@@ -540,7 +644,7 @@ export default function TeacherFolders() {
           </div>
           <div
             className="p-4 cursor-pointer"
-            onClick={() => setSelectedFolder(folder.folderId)}
+            onClick={() => handleSelectFolder(folder.folderId)}
           >
             <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
               {folder.folderName}
@@ -569,7 +673,7 @@ export default function TeacherFolders() {
       <div
         key={folder.folderId}
         className="relative rounded-xl border border-secondary-200 bg-white px-4 py-3 flex flex-col gap-3 hover:shadow-md transition-all cursor-pointer"
-        onClick={() => setSelectedFolder(folder.folderId)}
+        onClick={() => handleSelectFolder(folder.folderId)}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -626,6 +730,96 @@ export default function TeacherFolders() {
     );
   };
 
+  // Folder tree item for move modal
+  const FolderTreeItemForMove = ({
+    folder,
+    level = 0,
+  }: {
+    folder: FolderType;
+    level?: number;
+  }) => {
+    const isExpanded = moveModalExpandedFolders.has(folder.folderId);
+    const hasChildren = folder.folders && folder.folders.length > 0;
+    const isSelected = targetFolderId === folder.folderId;
+    const isCurrentFolder = folder.folderId === selectedFolder;
+
+    const toggleFolder = () => {
+      const newExpanded = new Set(moveModalExpandedFolders);
+      if (isExpanded) {
+        newExpanded.delete(folder.folderId);
+      } else {
+        newExpanded.add(folder.folderId);
+      }
+      setMoveModalExpandedFolders(newExpanded);
+    };
+
+    return (
+      <div>
+        <div className="flex items-stretch">
+          {/* Expand/Collapse button */}
+          {hasChildren && (
+            <button
+              onClick={toggleFolder}
+              className="flex items-center justify-center w-8 hover:bg-secondary-100 rounded transition-colors"
+              style={{ marginLeft: `${level * 20}px` }}
+            >
+              {isExpanded ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          {/* Folder button */}
+          <button
+            onClick={() => {
+              if (!isCurrentFolder) {
+                setTargetFolderId(folder.folderId);
+              }
+            }}
+            disabled={isCurrentFolder}
+            className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors ${
+              isCurrentFolder
+                ? "bg-secondary-100 text-secondary-400 cursor-not-allowed"
+                : isSelected
+                ? "bg-primary-600 text-white"
+                : "hover:bg-secondary-100 text-secondary-900"
+            }`}
+            style={{ marginLeft: hasChildren ? "0" : `${level * 20 + 32}px` }}
+          >
+            {isExpanded ? (
+              <FolderOpen className="w-4 h-4 flex-shrink-0" />
+            ) : (
+              <Folder className="w-4 h-4 flex-shrink-0" />
+            )}
+            <span className="flex-1 truncate text-sm font-medium">
+              {folder.folderName}
+              {isCurrentFolder && (
+                <span className="text-xs ml-2 opacity-75">
+                  (Thư mục hiện tại)
+                </span>
+              )}
+            </span>
+          </button>
+        </div>
+
+        {/* Subfolders */}
+        {isExpanded && hasChildren && (
+          <div className="mt-1 space-y-1">
+            {folder.folders.map((subFolder) => (
+              <FolderTreeItemForMove
+                key={subFolder.folderId}
+                folder={subFolder}
+                level={level + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderQuizCard = (quiz: Quiz) => {
     const resolveAvatarUrl = (raw?: string) => {
       if (!raw) return "";
@@ -650,7 +844,11 @@ export default function TeacherFolders() {
         <div
           key={quiz.quizzId}
           className="group rounded-2xl overflow-hidden border border-secondary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white cursor-pointer"
-          onClick={() => navigate(`/quiz/preview/${quiz.quizzId}`)}
+          onClick={() =>
+            navigate(`/quiz/preview/${quiz.quizzId}`, {
+              state: { from: "/teacher/folders" },
+            })
+          }
         >
           <div className="h-28 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center relative">
             {avatarUrl ? (
@@ -675,6 +873,13 @@ export default function TeacherFolders() {
               </button>
               {openQuizMenuId === quiz.quizzId && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm text-secondary-700 hover:bg-secondary-50 flex items-center gap-2"
+                    onClick={(e) => handleMoveQuiz(quiz, e)}
+                  >
+                    <FolderInput className="w-4 h-4" />
+                    Di chuyển đến...
+                  </button>
                   <button
                     className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                     onClick={(e) => handleDeleteQuiz(quiz, e)}
@@ -704,7 +909,9 @@ export default function TeacherFolders() {
               className="flex-1"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/quiz/preview/${quiz.quizzId}`);
+                navigate(`/quiz/preview/${quiz.quizzId}`, {
+                  state: { from: "/teacher/folders" },
+                });
               }}
             >
               <Play className="w-3 h-3 mr-1" />
@@ -715,7 +922,9 @@ export default function TeacherFolders() {
               variant="outline"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/quiz/edit/${quiz.quizzId}`);
+                navigate(`/quiz/edit/${quiz.quizzId}`, {
+                  state: { from: "/teacher/folders" },
+                });
               }}
             >
               <Edit className="w-3 h-3 mr-1" />
@@ -730,7 +939,11 @@ export default function TeacherFolders() {
       <div
         key={quiz.quizzId}
         className="relative rounded-xl border border-secondary-200 bg-white px-4 py-3 flex items-center justify-between gap-4 hover:shadow-md transition-all cursor-pointer"
-        onClick={() => navigate(`/quiz/preview/${quiz.quizzId}`)}
+        onClick={() =>
+          navigate(`/quiz/preview/${quiz.quizzId}`, {
+            state: { from: "/teacher/folders" },
+          })
+        }
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 overflow-hidden flex items-center justify-center">
@@ -777,7 +990,9 @@ export default function TeacherFolders() {
             variant="outline"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/quiz/edit/${quiz.quizzId}`);
+              navigate(`/quiz/edit/${quiz.quizzId}`, {
+                state: { from: "/teacher/folders" },
+              });
             }}
           >
             <Edit className="w-3 h-3 mr-1" />
@@ -792,6 +1007,13 @@ export default function TeacherFolders() {
         </div>
         {openQuizMenuId === quiz.quizzId && (
           <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-secondary-200 py-1 z-10">
+            <button
+              className="w-full px-4 py-2 text-left text-sm text-secondary-700 hover:bg-secondary-50 flex items-center gap-2"
+              onClick={(e) => handleMoveQuiz(quiz, e)}
+            >
+              <FolderInput className="w-4 h-4" />
+              Di chuyển đến...
+            </button>
             <button
               className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
               onClick={(e) => handleDeleteQuiz(quiz, e)}
@@ -972,7 +1194,13 @@ export default function TeacherFolders() {
 
                 {/* Show Create Quiz button only when not at root */}
                 {selectedFolder !== null && (
-                  <Button onClick={() => navigate("/quiz/create")}>
+                  <Button
+                    onClick={() =>
+                      navigate("/quiz/create", {
+                        state: { from: "/teacher/folders" },
+                      })
+                    }
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Tạo Quiz
                   </Button>
@@ -1148,6 +1376,86 @@ export default function TeacherFolders() {
                 </>
               ) : (
                 "Xóa thư mục"
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Move Quiz Modal */}
+      <Modal
+        isOpen={showMoveQuizModal}
+        onClose={() => {
+          setShowMoveQuizModal(false);
+          setQuizToMove(null);
+          setTargetFolderId(null);
+          setMoveModalExpandedFolders(new Set());
+        }}
+        title="Di chuyển quiz đến thư mục khác"
+      >
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-sm text-blue-800">
+              <span className="font-semibold">Quiz:</span> "{quizToMove?.title}"
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Chọn thư mục đích: <span className="text-error-600">*</span>
+            </label>
+            {folders.length === 0 ? (
+              <p className="text-sm text-secondary-500 text-center py-4 border rounded-lg">
+                Không có thư mục nào
+              </p>
+            ) : (
+              <div className="border rounded-lg p-2 max-h-80 overflow-y-auto bg-secondary-50">
+                <div className="space-y-1">
+                  {rootFolders.map((folder) => (
+                    <FolderTreeItemForMove
+                      key={folder.folderId}
+                      folder={folder}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {targetFolderId && (
+            <div className="bg-success-50 border border-success-200 rounded-lg p-3">
+              <p className="text-sm text-success-900">
+                ✓ Đã chọn thư mục:{" "}
+                <span className="font-semibold">
+                  {findFolderById(folders, targetFolderId)?.folderName}
+                </span>
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end space-x-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMoveQuizModal(false);
+                setQuizToMove(null);
+                setTargetFolderId(null);
+                setMoveModalExpandedFolders(new Set());
+              }}
+              disabled={loading}
+            >
+              Hủy
+            </Button>
+            <Button
+              onClick={confirmMoveQuiz}
+              disabled={loading || targetFolderId === null}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Đang di chuyển...
+                </>
+              ) : (
+                "Di chuyển"
               )}
             </Button>
           </div>

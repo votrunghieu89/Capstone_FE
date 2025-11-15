@@ -109,7 +109,7 @@ export default function PlayResult() {
     // Solo mode: quay lại preview để chơi lại
     if (isSoloMode && sessionId) {
       const quizId = sessionId.replace("solo-", "");
-      navigate(`/quiz/preview/${quizId}`);
+      navigate(`/quiz/preview/${quizId}`, { state: { from: "/play/result" } });
     }
     // Class mode: quay về trang lớp học
     else if (isClassMode) {

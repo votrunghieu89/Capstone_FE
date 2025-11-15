@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+} from "react-router-dom";
 import { ChevronLeft, Play, User, Heart, Calendar, Radio } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { storage } from "../../../libs/storage";
@@ -11,6 +16,8 @@ export default function QuizPreview() {
   const navigate = useNavigate();
   const { quizId } = useParams();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const previousPath = location.state?.from || "/search";
 
   // Check if this quiz is from a class
   const classId = searchParams.get("classId");
@@ -201,7 +208,9 @@ export default function QuizPreview() {
     if (!quiz) return;
     // Giáo viên tổ chức live - chuyển đến trang phòng chờ (shared lobby)
     // Pass state to indicate this is the host/creator
-    navigate(`/lobby/${quiz.quizId}`, { state: { isHost: true } });
+    navigate(`/lobby/${quiz.quizId}`, {
+      state: { isHost: true, from: `/preview/${quiz.quizId}` },
+    });
   };
 
   // Show loading state
@@ -249,7 +258,7 @@ export default function QuizPreview() {
               </ul>
             </div>
           )}
-          <Button onClick={() => navigate(-1)}>Quay lại</Button>
+          <Button onClick={() => navigate(previousPath)}>Quay lại</Button>
         </div>
       </div>
     );

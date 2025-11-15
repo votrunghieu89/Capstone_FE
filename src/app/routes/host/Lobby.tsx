@@ -243,7 +243,9 @@ export default function HostLobby() {
       {/* Top Bar */}
       <div className="relative z-10 flex items-center justify-between px-8 py-4 bg-black/10 backdrop-blur-sm">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() =>
+            navigate(location.state?.from || `/preview/${sessionId}`)
+          }
           className="text-white hover:bg-white/20 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium"
         >
           <ChevronLeft className="w-5 h-5" />
