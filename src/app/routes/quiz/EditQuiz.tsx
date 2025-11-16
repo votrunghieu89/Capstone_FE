@@ -467,12 +467,30 @@ export default function EditQuiz() {
 
       let finalAvatarUrl = data.avatarUrl || "";
 
-      // 1. Nếu có ảnh mới được chọn, gọi API updateImage trước
-      if (thumbnailFile) {
-        const formData = new FormData();
-        formData.append("QuizId", quizId!);
-        formData.append("AvatarURL", thumbnailFile);
+      // 1. Luôn gọi API updateImage để lưu thumbnail (có ảnh mới hoặc giữ nguyên ảnh cũ)
+      const formData = new FormData();
+      formData.append("QuizId", quizId!);
 
+      if (thumbnailFile) {
+        // Nếu có ảnh mới, gửi file
+        formData.append("AvatarURL", thumbnailFile);
+        console.log("📤 Gửi ảnh mới lên BE");
+      } else {
+        // Nếu không có ảnh mới, gửi URL hiện tại (nếu có) hoặc empty string
+        let avatarUrlToSend = finalAvatarUrl || "";
+        // Thêm QuizImage/ prefix nếu chỉ là tên file
+        if (avatarUrlToSend && !avatarUrlToSend.includes("/")) {
+          avatarUrlToSend = `QuizImage/${avatarUrlToSend}`;
+        }
+        formData.append("AvatarURL", avatarUrlToSend);
+        console.log(
+          "📤 Gửi URL ảnh hiện tại lên BE (hoặc empty):",
+          avatarUrlToSend || "(empty)"
+        );
+      }
+
+      // Luôn gọi API updateImage để lưu thumbnail
+      try {
         const imageResponse = (await apiClient.put(
           "/Quiz/updateImage",
           formData,
@@ -485,15 +503,28 @@ export default function EditQuiz() {
 
         // Lấy response từ BE và gán trực tiếp, không thêm URL
         // Response có thể là imageUrl hoặc toàn bộ response object
-        finalAvatarUrl =
+        const responseUrl =
           imageResponse?.imageUrl ||
           imageResponse?.data?.imageUrl ||
           imageResponse ||
           "";
+
+        // Chỉ cập nhật finalAvatarUrl nếu có response, nếu không giữ nguyên
+        if (responseUrl) {
+          finalAvatarUrl = responseUrl;
+        }
+
         console.log(
-          "✅ Upload image thành công, response từ BE:",
-          finalAvatarUrl
+          "✅ Update image thành công, response từ BE:",
+          finalAvatarUrl || "(giữ nguyên ảnh cũ)"
         );
+      } catch (imageError: any) {
+        // Nếu API updateImage lỗi, log nhưng vẫn tiếp tục với updateQuiz
+        console.warn(
+          "⚠️ Lỗi khi update image, tiếp tục với updateQuiz:",
+          imageError
+        );
+        // Giữ nguyên finalAvatarUrl hiện tại
       }
 
       // 2. Chuẩn bị payload cho API updateQuiz

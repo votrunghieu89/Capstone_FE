@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FolderPlus,
@@ -27,6 +27,39 @@ import {
 } from "../../../services/folderService";
 import { quizService } from "../../../services/quizService";
 import toast from "react-hot-toast";
+
+// Component để hiển thị số câu hỏi thực tế
+const QuestionCount: React.FC<{ quizId: number; fallback: number }> = ({
+  quizId,
+  fallback,
+}) => {
+  const [actualCount, setActualCount] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchActualCount = async () => {
+      try {
+        setLoading(true);
+        const detail = await quizService.getQuizDetailHP(quizId);
+        if (detail.totalQuestions !== undefined) {
+          setActualCount(detail.totalQuestions);
+        }
+      } catch (error) {
+        console.error("Error fetching question count:", error);
+        // Giữ nguyên fallback nếu lỗi
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchActualCount();
+  }, [quizId]);
+
+  // Hiển thị số thực tế nếu đã fetch được, nếu không thì dùng fallback
+  const displayCount = actualCount !== null ? actualCount : fallback;
+
+  return <span>{displayCount} câu hỏi</span>;
+};
 
 export default function TeacherFolders() {
   const navigate = useNavigate();
@@ -604,7 +637,6 @@ export default function TeacherFolders() {
   };
 
   const renderFolderCard = (folder: FolderType) => {
-    const quizCount = countQuizzes(folder);
     if (viewMode === "grid") {
       return (
         <div
@@ -649,7 +681,6 @@ export default function TeacherFolders() {
             <h3 className="font-bold text-secondary-900 mb-2 line-clamp-2 group-hover:text-primary-600 transition-colors">
               {folder.folderName}
             </h3>
-            <p className="text-sm text-secondary-600 mb-3">{quizCount} quiz</p>
           </div>
           <div className="px-4 pb-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
@@ -684,7 +715,6 @@ export default function TeacherFolders() {
               <h3 className="font-semibold text-secondary-900 truncate">
                 {folder.folderName}
               </h3>
-              <p className="text-xs text-secondary-600">{quizCount} quiz</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -899,7 +929,7 @@ export default function TeacherFolders() {
               {quiz.topicName}
             </p>
             <div className="flex items-center justify-between text-xs text-secondary-500">
-              <span>{quiz.totalQuestion} câu hỏi</span>
+              <QuestionCount quizId={quiz.quizzId} fallback={quiz.totalQuestion} />
               <span>{quiz.totalParticipants} lượt chơi</span>
             </div>
           </div>
@@ -968,7 +998,7 @@ export default function TeacherFolders() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-500">
               <span>{quiz.topicName}</span>
               <span>•</span>
-              <span>{quiz.totalQuestion} câu hỏi</span>
+              <QuestionCount quizId={quiz.quizzId} fallback={quiz.totalQuestion} />
               <span>•</span>
               <span>{quiz.totalParticipants} lượt chơi</span>
             </div>
