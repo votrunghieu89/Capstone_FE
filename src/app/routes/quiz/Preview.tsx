@@ -5,10 +5,10 @@ import {
   useSearchParams,
   useLocation,
 } from "react-router-dom";
-import { ChevronLeft, Play, User, Heart, Calendar, Radio } from "lucide-react";
+import { ChevronLeft, Play, User, Heart, Calendar, Radio, CheckCircle, Edit } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { storage } from "../../../libs/storage";
-import { quizService, QuizDetailHP } from "../../../services/quizService";
+import { quizService, QuizDetailHP, QuestionDetail } from "../../../services/quizService";
 import { favouriteService } from "../../../services/favouriteService";
 import { toast } from "react-hot-toast";
 
@@ -23,6 +23,9 @@ export default function QuizPreview() {
   const classId = searchParams.get("classId");
   const fromClass = classId !== null;
 
+  // Check if quiz is opened from Folders page
+  const fromFolders = location.state?.from === "/teacher/folders";
+
   // Get current user to check role
   const currentUser = storage.getUser();
   const isTeacher = currentUser?.role === "Teacher";
@@ -33,7 +36,9 @@ export default function QuizPreview() {
 
   // State for quiz data
   const [quiz, setQuiz] = useState<QuizDetailHP | null>(null);
+  const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Yêu thích state
@@ -74,6 +79,40 @@ export default function QuizPreview() {
         }
 
         setQuiz(data);
+
+        // Fetch questions only if opened from Folders page (for teachers)
+        if (isTeacher && fromFolders && data?.quizId) {
+          try {
+            setIsLoadingQuestions(true);
+            // Use getQuizDetailTeacher instead - it returns questions with isCorrect
+            const quizDetail = await quizService.getQuizDetailTeacher(data.quizId);
+            console.log("=== QUIZ DETAIL WITH QUESTIONS ===", quizDetail);
+            if (quizDetail && quizDetail.questions) {
+              console.log("Questions from getQuizDetailTeacher:", quizDetail.questions);
+              quizDetail.questions.forEach((q, qIdx) => {
+                console.log(`Question ${qIdx + 1} (${q.questionId}):`, q.questionContent);
+                q.options.forEach((opt, optIdx) => {
+                  console.log(`  Option ${optIdx + 1} (${opt.optionId}):`, {
+                    content: opt.optionContent,
+                    isCorrect: opt.isCorrect,
+                    isCorrectType: typeof opt.isCorrect,
+                    rawOption: opt
+                  });
+                });
+              });
+              setQuestions(quizDetail.questions);
+            } else {
+              // Fallback to getQuizQuestions if getQuizDetailTeacher doesn't work
+              const questionsData = await quizService.getQuizQuestions(data.quizId);
+              setQuestions(questionsData);
+            }
+          } catch (err) {
+            console.error("Error fetching questions:", err);
+            // Don't show error, just leave questions empty
+          } finally {
+            setIsLoadingQuestions(false);
+          }
+        }
 
         // Only check favourite status if quiz loaded successfully AND user is logged in
         const accountIdRaw = currentUser?.accountId || currentUser?.id;
@@ -211,6 +250,23 @@ export default function QuizPreview() {
     navigate(`/lobby/${quiz.quizId}`, {
       state: { isHost: true, from: `/preview/${quiz.quizId}` },
     });
+  };
+
+  const handleEditQuiz = () => {
+    if (!quiz) return;
+    navigate(`/quiz/edit/${quiz.quizId}`, {
+      state: { from: "/teacher/folders" },
+    });
+  };
+
+  // Map question type from BE to display name
+  const getQuestionTypeName = (type: string): string => {
+    const typeMap: Record<string, string> = {
+      TF: "Đúng/Sai",
+      MCQ: "Trắc nghiệm",
+      // Add more types if needed
+    };
+    return typeMap[type] || type;
   };
 
   // Show loading state
@@ -412,7 +468,10 @@ export default function QuizPreview() {
                   Câu hỏi
                 </div>
                 <div className="text-2xl font-bold text-primary-700">
-                  {quiz.totalQuestions || 0}
+                  {quiz.totalQuestions ?? 0}
+                </div>
+                <div className="text-xs text-primary-500 mt-1">
+                  {quiz.totalQuestions ?? 0} câu hỏi
                 </div>
               </div>
               <div className="bg-purple-50 rounded-xl px-4 py-3 border border-purple-100">
@@ -459,6 +518,142 @@ export default function QuizPreview() {
                 </Button>
               )}
             </div>
+
+            {/* Questions Section - Only show for teachers when opened from Folders */}
+            {isTeacher && fromFolders && (
+              <div className="mt-8 pt-8 border-t border-secondary-200">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-secondary-900">
+                    Danh sách câu hỏi
+                  </h2>
+                  <Button
+                    variant="outline"
+                    onClick={handleEditQuiz}
+                    className="flex items-center gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Sửa Quiz
+                  </Button>
+                </div>
+                
+                {isLoadingQuestions ? (
+                  <div className="text-center py-8">
+                    <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-secondary-600">Đang tải câu hỏi...</p>
+                  </div>
+                ) : questions.length === 0 ? (
+                  <div className="text-center py-8 bg-secondary-50 rounded-xl">
+                    <p className="text-secondary-600">Chưa có câu hỏi nào trong quiz này.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {questions.map((question, index) => {
+                      return (
+                        <div
+                          key={question.questionId}
+                          className="bg-white border border-secondary-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-bold">
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-semibold text-secondary-900 mb-2">
+                                {question.questionContent}
+                              </h3>
+                              <div className="flex items-center gap-4 text-sm text-secondary-600 mb-4">
+                                <span>Loại: <span className="font-medium text-secondary-900">{getQuestionTypeName(question.questionType)}</span></span>
+                                <span>•</span>
+                                <span>Thời gian: {question.time}s</span>
+                                <span>•</span>
+                                <span>Điểm: {question.score}</span>
+                              </div>
+                              
+                              {/* Options */}
+                              <div className="space-y-3">
+                                {question.options.map((option, optIndex) => {
+                                  // Handle both camelCase and PascalCase from API
+                                  const rawOption = option as any;
+                                  
+                                  // Try to get isCorrect value - check all possible field names
+                                  let isCorrectValue: any = rawOption.isCorrect;
+                                  if (isCorrectValue === undefined) {
+                                    isCorrectValue = rawOption.IsCorrect;
+                                  }
+                                  if (isCorrectValue === undefined) {
+                                    isCorrectValue = (option as any).isCorrect;
+                                  }
+                                  
+                                  // Convert to boolean - handle true, "true", 1, etc.
+                                  let isCorrect = false;
+                                  if (isCorrectValue !== undefined && isCorrectValue !== null) {
+                                    if (typeof isCorrectValue === 'boolean') {
+                                      isCorrect = isCorrectValue === true;
+                                    } else if (typeof isCorrectValue === 'string') {
+                                      isCorrect = isCorrectValue.toLowerCase() === 'true';
+                                    } else if (typeof isCorrectValue === 'number') {
+                                      isCorrect = isCorrectValue === 1;
+                                    }
+                                  }
+                                  
+                                  // Debug log for each option - ALWAYS log to see what we're getting
+                                  console.log(`[DEBUG] Question ${index + 1}, Option ${optIndex + 1} (${option.optionId}):`, {
+                                    content: option.optionContent,
+                                    'option.isCorrect': option.isCorrect,
+                                    'rawOption.isCorrect': rawOption.isCorrect,
+                                    'rawOption.IsCorrect': rawOption.IsCorrect,
+                                    isCorrectValue: isCorrectValue,
+                                    isCorrectValueType: typeof isCorrectValue,
+                                    isCorrectFinal: isCorrect,
+                                    fullRawOption: JSON.stringify(rawOption)
+                                  });
+                                  
+                                  return (
+                                    <div
+                                      key={option.optionId}
+                                      className={`p-4 rounded-xl border transition-all ${
+                                        isCorrect
+                                          ? "bg-green-50 border-green-100 text-green-700"
+                                          : "bg-white border-secondary-200 text-secondary-700 hover:border-secondary-300"
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        <div className={`flex-shrink-0 w-12 h-12 flex items-center justify-center border-2 rounded-full ${
+                                          isCorrect
+                                            ? "bg-green-50 border-green-100"
+                                            : "border-secondary-300 bg-white"
+                                        }`}>
+                                          <span className={`text-lg font-bold ${
+                                            isCorrect
+                                              ? "text-green-700"
+                                              : "text-secondary-500"
+                                          }`}>
+                                            {String.fromCharCode(65 + optIndex)}
+                                          </span>
+                                        </div>
+                                        <div className="flex-1">
+                                          <span className={`text-base leading-relaxed ${
+                                            isCorrect 
+                                              ? "font-semibold text-green-700" 
+                                              : "font-medium text-secondary-800"
+                                          }`}>
+                                            {option.optionContent || (option as any).OptionContent}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
