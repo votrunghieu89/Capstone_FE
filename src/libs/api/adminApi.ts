@@ -29,6 +29,21 @@ export interface MonthlyStats {
   count: number;
 }
 
+export interface AuditLog {
+  accountId: number;
+  action: string;
+  description: string;
+  creatAt: string;
+  ipAddress: string;
+}
+
+export interface PaginatedAuditLogsResponse {
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  data: AuditLog[];
+}
+
 // ==================== ADMIN API ====================
 export const adminApi = {
   // ========== DASHBOARD STATISTICS ==========
@@ -185,6 +200,33 @@ export const adminApi = {
       year,
       count: results[index],
     }));
+  },
+
+  // ========== AUDIT LOGS ==========
+
+  /**
+   * Lấy danh sách audit logs (phân trang)
+   * GET /api/Audit/audit-logs?page=1&pageSize=20
+   */
+  async getAuditLogs(
+    page: number = 1,
+    pageSize: number = 20
+  ): Promise<AuditLog[]> {
+    try {
+      const response = await apiClient.get<AuditLog[]>(
+        `/Audit/audit-logs?page=${page}&pageSize=${pageSize}`
+      );
+      return response;
+    } catch (error: any) {
+      console.error("Error fetching audit logs:", error);
+      // Nếu BE lỗi hoặc thiếu, chỉ log và trả về mảng rỗng
+      if (error.response) {
+        console.error("BE Response Error:", error.response.status, error.response.data);
+      } else if (error.code === "ERR_NETWORK") {
+        console.error("BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại");
+      }
+      return [];
+    }
   },
 
   // ========== USER MANAGEMENT ==========

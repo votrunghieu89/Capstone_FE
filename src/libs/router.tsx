@@ -49,89 +49,89 @@ import SoloResult from "../app/routes/quiz/SoloResult";
 import QuizDetail from "../app/routes/quiz/QuizDetail";
 export const router = createBrowserRouter(
   [
-    {
+  {
       path: "/",
-      element: <Home />,
-    },
-    {
+    element: <Home />,
+  },
+  {
       path: "/report/detail/:studentId/:quizId",
       element: <QuizDetail />,
     },
     {
       path: "/auth",
-      children: [
+    children: [
         { path: "login", element: <Login /> },
         { path: "register", element: <Register /> },
         { path: "forgot", element: <ForgotPassword /> },
         { path: "verify-otp", element: <VerifyOtp /> },
         { path: "reset", element: <ResetPassword /> },
         { path: "reset-password", element: <ResetPassword /> },
-      ],
-    },
-    {
+    ],
+  },
+  {
       path: "/admin",
-      element: (
-        <RequireAuth>
+    element: (
+      <RequireAuth>
           <RequireRole roles={["Admin"]}>
             <AdminLayout />
-          </RequireRole>
-        </RequireAuth>
-      ),
-      children: [
+        </RequireRole>
+      </RequireAuth>
+    ),
+    children: [
         { index: true, element: <AdminDashboard /> },
         { path: "users", element: <AdminUsers /> },
         { path: "users/:userId", element: <AdminUserDetail /> },
-      ],
-    },
-    {
+    ],
+  },
+  {
       path: "/teacher",
-      element: (
-        <RequireAuth>
+    element: (
+      <RequireAuth>
           <RequireRole roles={["Teacher"]}>
-            <TeacherLayout />
-          </RequireRole>
-        </RequireAuth>
-      ),
-      children: [
+          <TeacherLayout />
+        </RequireRole>
+      </RequireAuth>
+    ),
+    children: [
         { index: true, element: <Navigate to="/" replace /> },
         { path: "folders", element: <TeacherFolders /> },
         { path: "history", element: <TeacherHistory /> },
         { path: "classes", element: <TeacherClasses /> },
-      ],
-    },
-    {
+    ],
+  },
+  {
       path: "/student",
-      element: (
-        <RequireAuth>
+    element: (
+      <RequireAuth>
           <RequireRole roles={["Student"]}>
-            <StudentLayout />
-          </RequireRole>
-        </RequireAuth>
-      ),
-      children: [
+          <StudentLayout />
+        </RequireRole>
+      </RequireAuth>
+    ),
+    children: [
         { index: true, element: <Navigate to="/" replace /> },
         { path: "classes", element: <StudentClasses /> },
-        {
+      {
           path: "quiz/:quizId/result",
           element: <QuizResultView />,
         },
         { path: "history", element: <StudentHistory /> },
-      ],
-    },
-    {
+    ],
+  },
+  {
       path: "/host",
       children: [
         {
           path: "lobby/:quizId",
-          element: (
-            <RequireAuth>
+    element: (
+      <RequireAuth>
               <RequireRole roles={["Teacher"]}>
-                <HostLobby />
-              </RequireRole>
-            </RequireAuth>
-          ),
-        },
-        {
+          <HostLobby />
+        </RequireRole>
+      </RequireAuth>
+    ),
+      },
+      {
           path: "live/:quizId",
           element: (
             <RequireAuth>
@@ -140,8 +140,8 @@ export const router = createBrowserRouter(
               </RequireRole>
             </RequireAuth>
           ),
-        },
-        {
+      },
+      {
           path: "results/:quizId",
           element: (
             <RequireAuth>
@@ -150,22 +150,22 @@ export const router = createBrowserRouter(
               </RequireRole>
             </RequireAuth>
           ),
-        },
-      ],
-    },
-    {
+      },
+    ],
+  },
+  {
       path: "/play",
-      children: [
+    children: [
         { path: "join", element: <JoinByPin /> },
         { path: "live/:sessionId", element: <PlayLive /> },
         { path: "result/:sessionId", element: <PlayResult /> },
-      ],
-    },
+    ],
+  },
     // Shared lobby for both host and players (no role restriction)
     { path: "/lobby/:sessionId", element: <HostLobby /> },
     { path: "/quiz/preview/:quizId", element: <QuizPreview /> },
     { path: "/quiz/result/:quizId", element: <SoloResult /> },
-    { 
+  {
       path: "/report/detail/:id", 
       element: (
         <RequireAuth>
@@ -174,33 +174,33 @@ export const router = createBrowserRouter(
       ),
     },
     { path: "/search", element: <BrowseQuizzes /> },
-    {
+  {
       path: "/favourites",
-      element: (
-        <RequireAuth>
-          <FavouriteQuizzes />
-        </RequireAuth>
-      ),
-    },
-    {
+    element: (
+      <RequireAuth>
+        <FavouriteQuizzes />
+      </RequireAuth>
+    ),
+  },
+  {
       path: "/profile",
-      element: (
-        <RequireAuth>
-          <Profile />
-        </RequireAuth>
-      ),
-    },
-    {
+    element: (
+      <RequireAuth>
+        <Profile />
+      </RequireAuth>
+    ),
+  },
+  {
       path: "/quiz/create",
-      element: (
-        <RequireAuth>
+    element: (
+      <RequireAuth>
           <RequireRole roles={["Teacher"]}>
-            <CreateQuiz />
-          </RequireRole>
-        </RequireAuth>
-      ),
-    },
-    {
+          <CreateQuiz />
+        </RequireRole>
+      </RequireAuth>
+    ),
+  },
+  {
       path: "/quiz/edit/:quizId",
       element: (
         <RequireAuth>
@@ -215,6 +215,6 @@ export const router = createBrowserRouter(
   {
     future: {
       v7_startTransition: true,
-    },
+  },
   }
 );

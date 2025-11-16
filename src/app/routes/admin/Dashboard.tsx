@@ -1,9 +1,16 @@
 import { useNavigate } from "react-router-dom";
-import { Users, BookOpen } from "lucide-react";
+import { Users, BookOpen, Activity, Plus, Settings, Eye } from "lucide-react";
 import { storage } from "../../../libs/storage";
-import { adminApi } from "../../../libs/api/adminApi";
+import {
+  adminApi,
+  AuditLog,
+  AccountByRole,
+  MonthlyStats,
+} from "../../../libs/api/adminApi";
 import { useEffect, useState } from "react";
 import { Spinner } from "../../../components/common/Spinner";
+import { Button } from "../../../components/common/Button";
+import { LineChart, BarChart } from "../../../components/charts";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -16,11 +23,23 @@ export default function AdminDashboard() {
     totalStudents: 0,
     totalTeachers: 0,
   });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [accountMap, setAccountMap] = useState<Map<number, string>>(new Map()); // Map AccountId -> Email
+  const [quizChartData, setQuizChartData] = useState<MonthlyStats[]>([]);
+  const [accountChartData, setAccountChartData] = useState<MonthlyStats[]>([]);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [logsLoading, setLogsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [logsError, setLogsError] = useState<string | null>(null);
 
   // Gọi API khi component mount
   useEffect(() => {
+    // Reset state khi vào lại Dashboard
+    setAuditLogs([]);
+    setLogsLoading(true);
+    setLogsError(null);
+
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
@@ -35,10 +54,107 @@ export default function AdminDashboard() {
       }
     };
 
+    const fetchAccountsForMapping = async () => {
+      try {
+        // Lấy nhiều accounts để map AccountId -> Email
+        // Lấy 5 trang đầu (50 accounts) để cover hầu hết users
+        const allAccounts: AccountByRole[] = [];
+        for (let page = 1; page <= 5; page++) {
+          const accounts = await adminApi.getAllAccounts(page, 10);
+          allAccounts.push(...accounts);
+          if (accounts.length < 10) break; // Hết accounts
+        }
+
+        // Tạo map AccountId -> Email
+        const map = new Map<number, string>();
+        allAccounts.forEach((acc) => {
+          map.set(acc.accountId, acc.email);
+        });
+        setAccountMap(map);
+      } catch (err) {
+        console.warn(
+          "⚠️ Không thể lấy danh sách accounts để map email. Log sẽ hiển thị AccountId thay vì email:",
+          err
+        );
+      }
+    };
+
+    const fetchAuditLogs = async () => {
+      try {
+        setLogsLoading(true);
+        setLogsError(null);
+        console.log("🔄 Đang fetch audit logs...");
+        const logs = await adminApi.getAuditLogs(1, 100); // Lấy 100 log để hiển thị với scroll
+        console.log("✅ Nhận được audit logs:", logs.length, "logs", logs);
+        setAuditLogs(logs);
+        if (logs.length === 0) {
+          console.warn(
+            "⚠️ BE trả về mảng rỗng hoặc endpoint /api/Audit/audit-logs có thể chưa sẵn sàng"
+          );
+        } else {
+          console.log("✅ Đã set auditLogs state với", logs.length, "logs");
+        }
+      } catch (err: any) {
+        console.error("❌ Error fetching audit logs:", err);
+        setLogsError("Không thể tải log hoạt động");
+        // Log chi tiết lỗi BE
+        if (err.response) {
+          console.error(
+            "⚠️ BE Response Error:",
+            err.response.status,
+            err.response.data
+          );
+        } else if (err.code === "ERR_NETWORK") {
+          console.error(
+            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại"
+          );
+        }
+      } finally {
+        setLogsLoading(false);
+        console.log("✅ Đã set logsLoading = false");
+      }
+    };
+
+    const fetchChartData = async () => {
+      try {
+        setChartsLoading(true);
+        const currentYear = new Date().getFullYear();
+        const [quizData, accountData] = await Promise.all([
+          adminApi.getQuizMonthlyChart(currentYear),
+          adminApi.getAccountMonthlyChart(currentYear),
+        ]);
+        setQuizChartData(quizData);
+        setAccountChartData(accountData);
+      } catch (err: any) {
+        console.error("❌ Error fetching chart data:", err);
+        if (err.response) {
+          console.error(
+            "⚠️ BE Response Error:",
+            err.response.status,
+            err.response.data
+          );
+        } else if (err.code === "ERR_NETWORK") {
+          console.error(
+            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint chart không tồn tại"
+          );
+        }
+      } finally {
+        setChartsLoading(false);
+      }
+    };
+
     fetchDashboardData();
+    fetchAccountsForMapping();
+    fetchAuditLogs();
+    fetchChartData();
   }, []);
 
   const goDashboard = () => navigate("/admin");
+
+  const handleLogout = () => {
+    storage.clearAuth();
+    navigate("/auth/login");
+  };
 
   return (
     <div className="min-h-screen bg-secondary-50">
@@ -57,6 +173,24 @@ export default function AdminDashboard() {
               Admin Dashboard
             </span>
           </button>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-medium text-secondary-900">
+                {user?.name || "Admin"}
+              </p>
+              <p className="text-xs text-secondary-500">
+                {user?.email || "admin@example.com"}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-error-600"
+              onClick={handleLogout}
+            >
+              Đăng xuất
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -207,18 +341,239 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Thông báo: Các tính năng đang phát triển */}
-            <div className="card mb-8">
+            {/* Hoạt động gần đây - Audit Logs */}
+            <div className="card mb-8" style={{ display: "block" }}>
+              <div className="card-header">
+                <h3 className="text-lg font-semibold text-secondary-900">
+                  Hoạt động gần đây
+                </h3>
+              </div>
               <div className="card-content">
-                <div className="text-center py-8">
-                  <p className="text-secondary-600 mb-2">
-                    📊 Biểu đồ thống kê và phân tích chi tiết đang được phát
-                    triển
-                  </p>
-                  <p className="text-sm text-secondary-500">
-                    Các tính năng như biểu đồ theo tháng, phân bố người dùng sẽ
-                    sớm được bổ sung
-                  </p>
+                {logsLoading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <Spinner size="md" />
+                    <span className="ml-3 text-secondary-600">
+                      Đang tải log...
+                    </span>
+                  </div>
+                ) : logsError ? (
+                  <div className="text-center py-8">
+                    <p className="text-error-600 mb-2">⚠️ {logsError}</p>
+                    <p className="text-xs text-secondary-500">
+                      Vui lòng kiểm tra console để xem chi tiết lỗi BE
+                    </p>
+                  </div>
+                ) : !auditLogs || auditLogs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Activity className="w-12 h-12 text-secondary-400 mx-auto mb-3" />
+                    <p className="text-secondary-600 mb-2">
+                      ⚠️ Không có log hoạt động
+                    </p>
+                    <p className="text-xs text-secondary-500">
+                      BE có thể trả về mảng rỗng hoặc endpoint chưa sẵn sàng
+                    </p>
+                  </div>
+                ) : (
+                  <div className="max-h-96 overflow-y-auto pr-2">
+                    <div className="space-y-4">
+                      {/* Hiển thị tất cả log với scroll */}
+                      {auditLogs.map((log, idx) => {
+                        // Map action thành icon
+                        let Icon = Activity;
+                        if (
+                          log.action?.toLowerCase().includes("create") ||
+                          log.action?.toLowerCase().includes("tạo")
+                        ) {
+                          Icon = Plus;
+                        } else if (
+                          log.action?.toLowerCase().includes("update") ||
+                          log.action?.toLowerCase().includes("cập nhật")
+                        ) {
+                          Icon = Settings;
+                        } else if (
+                          log.action?.toLowerCase().includes("view") ||
+                          log.action?.toLowerCase().includes("xem")
+                        ) {
+                          Icon = Eye;
+                        }
+
+                        // Lấy email từ map, nếu không có thì hiển thị AccountId
+                        const userEmail =
+                          accountMap.get(log.accountId) ||
+                          `Account ID: ${log.accountId}`;
+
+                        // Format description để thay thế "account with ID:X" bằng email
+                        let displayDescription =
+                          log.description ||
+                          log.action ||
+                          "Hoạt động không có mô tả";
+                        if (
+                          log.description &&
+                          log.description.includes(
+                            `account with ID:${log.accountId}`
+                          )
+                        ) {
+                          displayDescription = displayDescription.replace(
+                            `account with ID:${log.accountId}`,
+                            userEmail
+                          );
+                        } else if (
+                          log.description &&
+                          log.description.includes(
+                            `by account with ID:${log.accountId}`
+                          )
+                        ) {
+                          displayDescription = displayDescription.replace(
+                            `by account with ID:${log.accountId}`,
+                            `bởi ${userEmail}`
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon className="w-5 h-5 text-secondary-500" />
+                              <div>
+                                <div className="text-secondary-900 text-sm font-medium">
+                                  {displayDescription}
+                                </div>
+                                <div className="text-secondary-500 text-xs">
+                                  {log.creatAt
+                                    ? new Date(log.creatAt).toLocaleString(
+                                        "vi-VN"
+                                      )
+                                    : "Không có thời gian"}
+                                  {log.ipAddress && ` • IP: ${log.ipAddress}`}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Biểu đồ thống kê */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Biểu đồ Quiz theo tháng */}
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="text-lg font-semibold text-secondary-900">
+                    Quiz theo tháng
+                  </h3>
+                </div>
+                <div className="card-content">
+                  {chartsLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Spinner size="md" />
+                      <span className="ml-3 text-secondary-600">
+                        Đang tải dữ liệu...
+                      </span>
+                    </div>
+                  ) : quizChartData.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-secondary-600 text-sm">
+                        Không có dữ liệu
+                      </p>
+                    </div>
+                  ) : (
+                    <LineChart
+                      data={{
+                        labels: quizChartData.map((item) => {
+                          const monthNames = [
+                            "Tháng 1",
+                            "Tháng 2",
+                            "Tháng 3",
+                            "Tháng 4",
+                            "Tháng 5",
+                            "Tháng 6",
+                            "Tháng 7",
+                            "Tháng 8",
+                            "Tháng 9",
+                            "Tháng 10",
+                            "Tháng 11",
+                            "Tháng 12",
+                          ];
+                          return `${monthNames[item.month - 1]}/${item.year}`;
+                        }),
+                        datasets: [
+                          {
+                            label: "Số Quiz",
+                            data: quizChartData.map((item) => item.count),
+                            borderColor: "rgb(99, 102, 241)",
+                            backgroundColor: "rgba(99, 102, 241, 0.1)",
+                            tension: 0.4,
+                          },
+                        ],
+                      }}
+                      title="Quiz được tạo theo tháng"
+                      height={300}
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Biểu đồ Tài khoản theo tháng */}
+              <div className="card">
+                <div className="card-header">
+                  <h3 className="text-lg font-semibold text-secondary-900">
+                    Tài khoản theo tháng
+                  </h3>
+                </div>
+                <div className="card-content">
+                  {chartsLoading ? (
+                    <div className="flex justify-center items-center py-8">
+                      <Spinner size="md" />
+                      <span className="ml-3 text-secondary-600">
+                        Đang tải dữ liệu...
+                      </span>
+                    </div>
+                  ) : accountChartData.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-secondary-600 text-sm">
+                        Không có dữ liệu
+                      </p>
+                    </div>
+                  ) : (
+                    <BarChart
+                      data={{
+                        labels: accountChartData.map((item) => {
+                          const monthNames = [
+                            "Tháng 1",
+                            "Tháng 2",
+                            "Tháng 3",
+                            "Tháng 4",
+                            "Tháng 5",
+                            "Tháng 6",
+                            "Tháng 7",
+                            "Tháng 8",
+                            "Tháng 9",
+                            "Tháng 10",
+                            "Tháng 11",
+                            "Tháng 12",
+                          ];
+                          return `${monthNames[item.month - 1]}/${item.year}`;
+                        }),
+                        datasets: [
+                          {
+                            label: "Số Tài khoản",
+                            data: accountChartData.map((item) => item.count),
+                            backgroundColor: "rgba(251, 146, 60, 0.8)",
+                            borderColor: "rgb(251, 146, 60)",
+                            borderWidth: 1,
+                          },
+                        ],
+                      }}
+                      title="Tài khoản được tạo theo tháng"
+                      height={300}
+                    />
+                  )}
                 </div>
               </div>
             </div>
