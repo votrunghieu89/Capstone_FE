@@ -30,6 +30,7 @@ import {
   FolderType,
   QuizInFolder,
 } from "../../../services/folderService";
+import { quizService } from "../../../services/quizService";
 import { toast } from "react-hot-toast";
 
 interface ClassWithDetails extends AllGroupDTO {
@@ -139,7 +140,39 @@ export default function TeacherClasses() {
     try {
       setLoadingQuizzes(true);
       const data = await folderService.getFolderDetail(teacherId, folderId);
-      setQuizzesInFolder(data.quizzFolder);
+      const quizzes = data?.quizzFolder ?? [];
+
+      const enrichedQuizzes = await Promise.all(
+        quizzes.map(async (quiz: any) => {
+          let totalQuestion = 0;
+
+          try {
+            const detail = await quizService.getQuizDetailTeacher(quiz.quizzId);
+            totalQuestion =
+              detail?.totalQuestions && detail.totalQuestions > 0
+                ? detail.totalQuestions
+                : detail?.questions?.length ?? 0;
+          } catch (error) {
+            console.warn(
+              "Không thể lấy chi tiết quiz, fallback dùng số có sẵn",
+              quiz.quizzId,
+              error
+            );
+            totalQuestion =
+              quiz.totalQuestion ??
+              quiz.totalQuestions ??
+              quiz.TotalQuestion ??
+              0;
+          }
+
+          return {
+            ...quiz,
+            totalQuestion,
+          };
+        })
+      );
+
+      setQuizzesInFolder(enrichedQuizzes as QuizInFolder[]);
     } catch (error: any) {
       console.error("Error loading quizzes:", error);
       toast.error("Không thể tải danh sách quiz");

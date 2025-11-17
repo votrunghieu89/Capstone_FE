@@ -20,6 +20,7 @@ import {
   AllGroupDTO,
   ViewQuizDTO,
 } from "../../../services/groupService";
+import { offlineQuizService } from "../../../services/offlineQuizService";
 import { toast } from "react-hot-toast";
 
 interface ClassWithDetails extends AllGroupDTO {
@@ -45,6 +46,16 @@ export default function StudentClasses() {
   const itemsPerPage = 15; // 5 rows x 3 columns
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [classToLeave, setClassToLeave] = useState<number | null>(null);
+  const [quizAttempts, setQuizAttempts] = useState<
+    Record<
+      number,
+      {
+        count: number;
+        max?: number | null;
+      }
+    >
+  >({});
+  const [isAttemptLoading, setIsAttemptLoading] = useState(false);
 
   const getStudentId = () => {
     const token = localStorage.getItem("access_token");
@@ -58,6 +69,82 @@ export default function StudentClasses() {
       }
     }
     return 0;
+  };
+
+  const fetchQuizAttempts = async (quizzes: ViewQuizDTO[] = []) => {
+    const studentId = getStudentId();
+
+    if (!studentId) {
+      setQuizAttempts({});
+      return;
+    }
+
+    if (!quizzes.length) {
+      setQuizAttempts({});
+      return;
+    }
+
+    const assignableQuizzes = quizzes.filter(
+      (quiz) => quiz.qgId && (quiz.deliveredQuiz?.quizId || quiz.quizId)
+    );
+
+    if (!assignableQuizzes.length) {
+      setQuizAttempts({});
+      return;
+    }
+
+    setIsAttemptLoading(true);
+
+    const attemptEntries = await Promise.all(
+      assignableQuizzes.map(async (quiz) => {
+        const targetQuizId = quiz.deliveredQuiz?.quizId || quiz.quizId;
+        if (!targetQuizId || !quiz.qgId) return null;
+
+        try {
+          const result = await offlineQuizService.getResult(
+            studentId,
+            targetQuizId,
+            quiz.qgId
+          );
+
+          return [
+            quiz.qgId,
+            {
+              count: result.countAttempts ?? 0,
+              max: result.maxAttempts ?? quiz.maxAttempts,
+            },
+          ] as const;
+        } catch (error: any) {
+          if (error?.response?.status === 404) {
+            return [
+              quiz.qgId,
+              {
+                count: 0,
+                max: quiz.maxAttempts,
+              },
+            ] as const;
+          }
+
+          console.error(
+            `Không thể lấy số lần làm của quiz ${targetQuizId}:`,
+            error
+          );
+          return null;
+        }
+      })
+    );
+
+    setQuizAttempts((prev) => {
+      const next = { ...prev };
+      attemptEntries.forEach((entry) => {
+        if (!entry) return;
+        const [qgId, stats] = entry;
+        next[qgId] = stats;
+      });
+      return next;
+    });
+
+    setIsAttemptLoading(false);
   };
 
   const fetchClasses = async () => {
@@ -85,14 +172,16 @@ export default function StudentClasses() {
   const handleViewDetail = async (classItem: ClassWithDetails) => {
     try {
       const detail = await groupService.getGroupDetail(classItem.groupId);
+      const quizzes = detail.quizzes || [];
       setSelectedClass({
         ...classItem,
-        quizzes: detail.quizzes,
+        quizzes,
         groupDescription: detail.groupDescription,
         idUnique: detail.idUnique,
       });
-      setDetailQuizzes(detail.quizzes || []);
+      setDetailQuizzes(quizzes);
       setDetailQuizPage(1);
+      await fetchQuizAttempts(quizzes);
     } catch (error: any) {
       console.warn(
         "Cannot fetch class detail, showing basic info:",
@@ -109,6 +198,7 @@ export default function StudentClasses() {
         idUnique: classItem.idUnique,
       });
       setDetailQuizzes([]);
+      setQuizAttempts({});
     }
   };
 
@@ -161,10 +251,41 @@ export default function StudentClasses() {
   // Navigate to quiz preview page (student view)
   // Preview page will show quiz details with "Bắt đầu làm Quiz" button
   // (No "Tổ chức Live" button for students - that's teacher only)
-  const handleStartQuiz = (quizId: number) => {
-    navigate(`/quiz/preview/${quizId}`, {
-      state: { from: "/student/classes" },
-    });
+  const handleStartQuiz = (quiz: ViewQuizDTO) => {
+    const targetQuizId = quiz.deliveredQuiz?.quizId || quiz.quizId;
+
+    if (!targetQuizId) {
+      toast.error("Không tìm thấy thông tin quiz");
+      return;
+    }
+
+    if (quiz.expiredDate) {
+      const expiredDate = new Date(quiz.expiredDate);
+      if (expiredDate.getTime() <= Date.now()) {
+        toast.error("Quiz đã hết hạn");
+        return;
+      }
+    }
+
+    const query = new URLSearchParams();
+    const classId = selectedClass?.groupId;
+
+    if (classId) {
+      query.set("classId", classId.toString());
+    }
+
+    navigate(
+      `/quiz/preview/${targetQuizId}${
+        query.toString() ? `?${query.toString()}` : ""
+      }`,
+      {
+        state: {
+          from: "/student/classes",
+          classId,
+          qgId: quiz.qgId,
+        },
+      }
+    );
   };
 
   return (
@@ -473,75 +594,141 @@ export default function StudentClasses() {
                               (detailQuizPage - 1) * detailQuizzesPerPage,
                               detailQuizPage * detailQuizzesPerPage
                             )
-                            .map((quiz) => (
-                              <div
-                                key={quiz.qgId}
-                                className="card border border-secondary-200"
-                              >
-                                <div className="card-content p-4">
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                                      <BookOpen className="w-5 h-5 text-primary-600" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                          <h4 className="font-semibold text-secondary-900 leading-tight truncate">
-                                            {quiz.title}
-                                          </h4>
-                                          {quiz.message && (
-                                            <p className="text-sm text-secondary-600 line-clamp-1">
-                                              {quiz.message}
-                                            </p>
-                                          )}
-                                        </div>
-                                        <Button
-                                          size="sm"
-                                          onClick={() =>
-                                            handleStartQuiz(
-                                              quiz.deliveredQuiz?.quizId ||
-                                                quiz.quizId
-                                            )
-                                          }
-                                        >
-                                          <Play className="w-4 h-4 mr-2" />
-                                          Làm bài
-                                        </Button>
-                                      </div>
+                            .map((quiz) => {
+                              const expiredDate = quiz.expiredDate
+                                ? new Date(quiz.expiredDate)
+                                : null;
+                              const isExpired =
+                                expiredDate &&
+                                expiredDate.getTime() <= Date.now();
 
-                                      {/* Meta compact */}
-                                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
-                                        <span>GV: {quiz.teacherName}</span>
-                                        <span>•</span>
-                                        <span>
-                                          Giao:{" "}
-                                          {new Date(
-                                            quiz.dateCreated
-                                          ).toLocaleDateString("vi-VN")}
-                                        </span>
-                                        {quiz.expiredDate && (
-                                          <span className="flex items-center gap-1 text-error-600">
-                                            <Calendar className="w-3 h-3" />
-                                            Hết hạn:{" "}
+                              const attemptStats = quiz.qgId
+                                ? quizAttempts[quiz.qgId]
+                                : undefined;
+
+                              const trackedMaxAttempts =
+                                attemptStats?.max ?? quiz.maxAttempts;
+                              const attemptCount = attemptStats?.count ?? 0;
+
+                              const remainingAttempts =
+                                trackedMaxAttempts !== undefined &&
+                                trackedMaxAttempts !== null
+                                  ? Math.max(
+                                      Number(trackedMaxAttempts) - attemptCount,
+                                      0
+                                    )
+                                  : null;
+
+                              const hasLimitedAttempts =
+                                typeof trackedMaxAttempts === "number" &&
+                                trackedMaxAttempts > 0;
+
+                              const isOutOfAttempts =
+                                hasLimitedAttempts &&
+                                remainingAttempts !== null &&
+                                remainingAttempts <= 0;
+
+                              return (
+                                <div
+                                  key={quiz.qgId}
+                                  className="card border border-secondary-200"
+                                >
+                                  <div className="card-content p-4">
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                                        <BookOpen className="w-5 h-5 text-primary-600" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-start justify-between gap-3">
+                                          <div className="min-w-0">
+                                            <h4 className="font-semibold text-secondary-900 leading-tight truncate">
+                                              {quiz.title}
+                                            </h4>
+                                            {quiz.message && (
+                                              <p className="text-sm text-secondary-600 line-clamp-1">
+                                                {quiz.message}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleStartQuiz(quiz)}
+                                            disabled={isOutOfAttempts || isExpired}
+                                            className={
+                                              isOutOfAttempts || isExpired
+                                                ? "bg-secondary-200 text-secondary-500 cursor-not-allowed"
+                                                : ""
+                                            }
+                                          >
+                                            <Play className="w-4 h-4 mr-2" />
+                                            {isExpired
+                                              ? "Đã hết hạn"
+                                              : isOutOfAttempts
+                                              ? "Đã hết lượt"
+                                              : "Làm bài"}
+                                          </Button>
+                                        </div>
+
+                                        {/* Meta compact */}
+                                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-secondary-600">
+                                          <span>GV: {quiz.teacherName}</span>
+                                          <span>•</span>
+                                          <span>
+                                            Giao:{" "}
                                             {new Date(
-                                              quiz.expiredDate
+                                              quiz.dateCreated
                                             ).toLocaleDateString("vi-VN")}
                                           </span>
-                                        )}
-                                        {quiz.maxAttempts !== undefined &&
-                                          quiz.maxAttempts !== null && (
-                                            <span className="flex items-center gap-1">
-                                              <RotateCcw className="w-3 h-3" />
-                                              Số lần làm:{" "}
-                                              {quiz.maxAttempts || 0}
+                                          {quiz.expiredDate && (
+                                            <span
+                                              className={`flex items-center gap-1 ${
+                                                isExpired
+                                                  ? "text-error-600"
+                                                  : "text-secondary-600"
+                                              }`}
+                                            >
+                                              <Calendar className="w-3 h-3" />
+                                              Hết hạn:{" "}
+                                              {new Date(
+                                                quiz.expiredDate
+                                              ).toLocaleString("vi-VN", {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                                day: "2-digit",
+                                                month: "2-digit",
+                                                year: "numeric",
+                                              })}
                                             </span>
                                           )}
+                                          {hasLimitedAttempts && (
+                                            <span
+                                              className={`flex items-center gap-1 ${
+                                                isOutOfAttempts
+                                                  ? "text-error-600"
+                                                  : ""
+                                              }`}
+                                            >
+                                              <RotateCcw className="w-3 h-3" />
+                                              {isAttemptLoading
+                                                ? "Đang kiểm tra lượt..."
+                                                : `Số lần còn lại: ${
+                                                    remainingAttempts ?? 0
+                                                  }/${trackedMaxAttempts}`}
+                                            </span>
+                                          )}
+                                          {!hasLimitedAttempts && (
+                                            <span className="flex items-center gap-1">
+                                              <RotateCcw className="w-3 h-3" />
+                                              Không giới hạn lượt
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                         </div>
                       )}
 

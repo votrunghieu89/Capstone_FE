@@ -37,14 +37,25 @@ export default function Landing() {
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    return quizzes.filter(
-      (q) =>
-        (activeCategory === "Tất cả" || q.topicName === activeCategory) &&
-        (!s ||
-          q.title.toLowerCase().includes(s) ||
-          q.description.toLowerCase().includes(s))
-    );
-  }, [activeCategory, search,quizzes]);
+    return quizzes.filter((q) => {
+      const topicMatch =
+        activeCategory === "Tất cả" || q.topicName === activeCategory;
+      if (!topicMatch) return false;
+
+      if (!s) return true;
+
+      const title = q.title?.toLowerCase?.() ?? "";
+      const description = q.description?.toLowerCase?.() ?? "";
+      const teacher =
+        q.teacherName?.toLowerCase?.() ||
+        q.createdBy?.toLowerCase?.() ||
+        "";
+
+      return (
+        title.includes(s) || description.includes(s) || teacher.includes(s)
+      );
+    });
+  }, [activeCategory, search, quizzes]);
 
   const user = storage.getUser();
 

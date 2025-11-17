@@ -1,366 +1,342 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { Trophy, ChevronLeft } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import {
+  Trophy,
+  Target,
+  Clock,
+  CheckCircle,
+  XCircle,
+  ChevronLeft,
+  RotateCcw,
+} from "lucide-react";
 import { Button } from "../../../components/common/Button";
-import { useState, useEffect } from "react";
-
-interface StudentResult {
-  studentId: string;
-  studentName: string;
-  avatarUrl?: string;
-  score: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  timeSpent: number;
-  completedAt: string;
-  rank: number;
-}
-
-interface QuizLeaderboardData {
-  quizTitle: string;
-  className: string;
-  maxScore: number;
-  totalQuestions: number;
-  myResult?: StudentResult;
-  leaderboard: StudentResult[];
-}
+import { Spinner } from "../../../components/common/Spinner";
+import { storage } from "../../../libs/storage";
+import {
+  offlineQuizService,
+  OfflineResultDetailViewDTO,
+} from "../../../services/offlineQuizService";
+import { toast } from "react-hot-toast";
 
 export default function QuizResultView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { quizId } = useParams();
+  const [searchParams] = useSearchParams();
+
   const [isLoading, setIsLoading] = useState(true);
-  const [leaderboardData, setLeaderboardData] =
-    useState<QuizLeaderboardData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [resultData, setResultData] =
+    useState<OfflineResultDetailViewDTO | null>(null);
+
+  const qgIdFromParams = useMemo(() => {
+    const qgIdQuery = searchParams.get("qgId");
+    if (qgIdQuery) return parseInt(qgIdQuery, 10);
+    const stateQGId = (location.state as any)?.qgId;
+    if (stateQGId) return Number(stateQGId);
+    return null;
+  }, [searchParams, location.state]);
 
   useEffect(() => {
-    // TODO: Call API to get quiz leaderboard for class
-    const fetchQuizLeaderboard = async () => {
-      setIsLoading(true);
-      await new Promise((r) => setTimeout(r, 500));
+    const loadResult = async () => {
+      if (!quizId) {
+        setError("Không tìm thấy quiz ID");
+        setIsLoading(false);
+        return;
+      }
 
-      // Mock data - Bảng xếp hạng các thành viên trong lớp
-      setLeaderboardData({
-        quizTitle: "Kiểm tra Toán chương 1",
-        className: "Lớp 10A1 - Toán học",
-        maxScore: 100,
-        totalQuestions: 10,
-        myResult: {
-          studentId: "current-user",
-          studentName: "Học sinh (Bạn)",
-          score: 85,
-          correctAnswers: 8,
-          totalQuestions: 10,
-          timeSpent: 240,
-          completedAt: "2024-10-10T10:30:00",
-          rank: 3,
-        },
-        leaderboard: [
-          {
-            studentId: "1",
-            studentName: "Nguyễn Văn A",
-            avatarUrl:
-              "https://ui-avatars.com/api/?name=Nguyen+Van+A&background=random",
-            score: 100,
-            correctAnswers: 10,
-            totalQuestions: 10,
-            timeSpent: 180,
-            completedAt: "2024-10-10T09:15:00",
-            rank: 1,
-          },
-          {
-            studentId: "2",
-            studentName: "Trần Thị B",
-            avatarUrl:
-              "https://ui-avatars.com/api/?name=Tran+Thi+B&background=random",
-            score: 90,
-            correctAnswers: 9,
-            totalQuestions: 10,
-            timeSpent: 200,
-            completedAt: "2024-10-10T09:45:00",
-            rank: 2,
-          },
-          {
-            studentId: "current-user",
-            studentName: "Học sinh (Bạn)",
-            score: 85,
-            correctAnswers: 8,
-            totalQuestions: 10,
-            timeSpent: 240,
-            completedAt: "2024-10-10T10:30:00",
-            rank: 3,
-          },
-          {
-            studentId: "3",
-            studentName: "Lê Văn C",
-            avatarUrl:
-              "https://ui-avatars.com/api/?name=Le+Van+C&background=random",
-            score: 80,
-            correctAnswers: 8,
-            totalQuestions: 10,
-            timeSpent: 300,
-            completedAt: "2024-10-10T10:45:00",
-            rank: 4,
-          },
-          {
-            studentId: "4",
-            studentName: "Phạm Thị D",
-            avatarUrl:
-              "https://ui-avatars.com/api/?name=Pham+Thi+D&background=random",
-            score: 75,
-            correctAnswers: 7,
-            totalQuestions: 10,
-            timeSpent: 280,
-            completedAt: "2024-10-10T11:00:00",
-            rank: 5,
-          },
-          {
-            studentId: "5",
-            studentName: "Hoàng Văn E",
-            avatarUrl:
-              "https://ui-avatars.com/api/?name=Hoang+Van+E&background=random",
-            score: 70,
-            correctAnswers: 7,
-            totalQuestions: 10,
-            timeSpent: 320,
-            completedAt: "2024-10-10T11:15:00",
-            rank: 6,
-          },
-        ],
-      });
-      setIsLoading(false);
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const user = storage.getUser();
+        const studentIdRaw = user?.id || user?.accountId;
+        if (!studentIdRaw) {
+          throw new Error("Vui lòng đăng nhập để xem kết quả");
+        }
+
+        const studentId =
+          typeof studentIdRaw === "string"
+            ? parseInt(studentIdRaw, 10)
+            : studentIdRaw;
+
+        const result = await offlineQuizService.getResult(
+          studentId,
+          parseInt(quizId, 10),
+          qgIdFromParams ?? undefined
+        );
+
+        setResultData(result);
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Không thể tải kết quả";
+        setError(message);
+        toast.error(message);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    fetchQuizLeaderboard();
-  }, [quizId]);
+    loadResult();
+  }, [quizId, qgIdFromParams]);
+
+  const handleBackToClass = () => navigate("/student/classes");
+
+  const handlePlayAgain = () => {
+    if (!quizId) return;
+    navigate(`/quiz/preview/${quizId}`, {
+      state: { from: location.pathname, qgId: qgIdFromParams },
+    });
+  };
+
+  const getPerformanceMessage = (score: number) => {
+    if (score >= 90) return "Xuất sắc! 🎉";
+    if (score >= 70) return "Tốt lắm! 👏";
+    if (score >= 50) return "Khá tốt! 👍";
+    return "Cố gắng thêm nhé! 💪";
+  };
+
+  const getPerformanceColor = (score: number) => {
+    if (score >= 90) return "from-green-500 to-emerald-600";
+    if (score >= 70) return "from-blue-500 to-cyan-600";
+    if (score >= 50) return "from-yellow-500 to-orange-600";
+    return "from-red-500 to-pink-600";
+  };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <Spinner size="lg" className="text-primary-600 mx-auto mb-4" />
           <p className="text-secondary-600">Đang tải kết quả...</p>
         </div>
       </div>
     );
   }
 
-  if (!leaderboardData) {
+  if (error || !resultData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-secondary-600 mb-4">Không tìm thấy kết quả</p>
-          <Button onClick={() => navigate("/student/classes")}>
-            Quay về lớp học
-          </Button>
+        <div className="text-center max-w-md">
+          <p className="text-secondary-700 text-lg mb-4">
+            {error || "Không tìm thấy kết quả"}
+          </p>
+          <Button onClick={handleBackToClass}>Quay về lớp học</Button>
         </div>
       </div>
     );
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const getRankColor = (rank: number) => {
-    if (rank === 1) return "text-yellow-600 bg-yellow-50";
-    if (rank === 2) return "text-gray-600 bg-gray-50";
-    if (rank === 3) return "text-orange-600 bg-orange-50";
-    return "text-secondary-600 bg-secondary-50";
-  };
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return "🥇";
-    if (rank === 2) return "🥈";
-    if (rank === 3) return "🥉";
-    return `#${rank}`;
-  };
-
-  const { myResult } = leaderboardData;
+  const score = resultData.score ?? 0;
+  const correctAnswers = resultData.correctCount ?? 0;
+  const totalQuestions = resultData.totalQuestion ?? 0;
+  const duration = resultData.duration ?? 0;
+  const averageTime =
+    totalQuestions > 0 ? Math.round(duration / totalQuestions) : 0;
+  const accuracy =
+    totalQuestions > 0
+      ? Math.round((correctAnswers / totalQuestions) * 100)
+      : 0;
+  const questionDetails = resultData.questionDetails ?? [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
+      <div className="max-w-5xl mx-auto space-y-6">
         <button
-          onClick={() => navigate("/student/classes")}
-          className="inline-flex items-center text-sm text-secondary-600 hover:text-secondary-900 mb-6 transition-colors"
+          onClick={handleBackToClass}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-primary-700 bg-white rounded-full shadow-md border border-primary-100 hover:bg-primary-50 hover:text-primary-900 transition-all"
         >
-          <ChevronLeft className="w-4 h-4 mr-1" /> Quay về lớp học
+          <ChevronLeft className="w-4 h-4" />
+          Quay về lớp học
         </button>
 
-        {/* Quiz Info Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between mb-2">
+        {/* Hero Card */}
+        <div
+          className={`bg-gradient-to-r ${getPerformanceColor(
+            score
+          )} rounded-3xl p-8 text-white shadow-2xl`}
+        >
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
-              <h1 className="text-2xl font-bold text-secondary-900 mb-1">
-                {leaderboardData.quizTitle}
-              </h1>
-              <p className="text-secondary-600">{leaderboardData.className}</p>
-            </div>
-            <div className="text-right">
-              <div className="text-sm text-secondary-600">Tổng số câu</div>
-              <div className="text-2xl font-bold text-primary-600">
-                {leaderboardData.totalQuestions}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* My Result Card */}
-        {myResult && (
-          <div className="bg-gradient-to-r from-primary-500 to-purple-600 rounded-2xl p-6 text-white shadow-lg mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="bg-white/20 backdrop-blur-md rounded-full p-3">
-                  <Trophy className="w-8 h-8 text-white" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-16 h-16 rounded-2xl bg-white/30 flex items-center justify-center">
+                  <Trophy className="w-9 h-9 text-white" />
                 </div>
                 <div>
-                  <p className="text-white/80 text-sm mb-1">Kết quả của bạn</p>
-                  <p className="text-2xl font-bold">Hạng {myResult.rank}</p>
+                  <p className="text-sm uppercase text-white/70">
+                    Kết quả bài làm
+                  </p>
+                  <h1 className="text-3xl font-black">
+                    {getPerformanceMessage(score)}
+                  </h1>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
-                  <div className="text-3xl font-bold">{myResult.score}</div>
-                  <div className="text-xs text-white/80">Điểm</div>
+              <p className="text-white/90 text-lg">
+                Bạn đã hoàn thành quiz:{" "}
+                <span className="font-semibold">{resultData.quizTitle}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto">
+              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black">{score}</div>
+                <div className="text-xs text-white/90">Điểm số</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black">
+                  {correctAnswers}/{totalQuestions}
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold">
-                    {myResult.correctAnswers}/{myResult.totalQuestions}
-                  </div>
-                  <div className="text-xs text-white/80">Đúng</div>
+                <div className="text-xs text-white/90">Câu đúng</div>
+              </div>
+              {resultData.rank !== undefined && resultData.rank !== null && (
+                <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center">
+                  <div className="text-3xl font-black">#{resultData.rank}</div>
+                  <div className="text-xs text-white/90">Xếp hạng</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold">
-                    {formatTime(myResult.timeSpent)}
-                  </div>
-                  <div className="text-xs text-white/80">Thời gian</div>
-                </div>
+              )}
+              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center">
+                <div className="text-3xl font-black">{duration}s</div>
+                <div className="text-xs text-white/90">Thời gian</div>
               </div>
             </div>
           </div>
-        )}
 
-        {/* Leaderboard */}
-        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-primary-600 to-purple-600 p-6">
-            <h2 className="text-2xl font-bold text-white flex items-center">
-              <Trophy className="w-7 h-7 mr-2" />
-              Bảng Xếp Hạng
-            </h2>
-            <p className="text-white/80 text-sm mt-1">
-              {leaderboardData.leaderboard.length} học sinh đã hoàn thành
-            </p>
+          <div className="mt-8 text-sm text-white/80">
+            Nếu muốn làm lại quiz, quay về trang lớp và mở lại bài kiểm tra.
           </div>
+        </div>
 
-          <div className="p-6">
-            <div className="space-y-3">
-              {leaderboardData.leaderboard.map((student) => {
-                const isCurrentUser = student.studentId === "current-user";
-                const accuracy = Math.round(
-                  (student.correctAnswers / student.totalQuestions) * 100
-                );
+        {/* Personal Stats */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8">
+          <h2 className="text-2xl font-bold text-secondary-900 mb-6 flex items-center gap-3">
+            <Target className="w-6 h-6 text-primary-600" />
+            Kết quả của bạn
+          </h2>
 
-                return (
-                  <div
-                    key={student.studentId}
-                    className={`flex items-center justify-between p-4 rounded-xl transition-all ${
-                      isCurrentUser
-                        ? "bg-primary-50 border-2 border-primary-300 shadow-md"
-                        : "bg-secondary-50 border border-secondary-200 hover:shadow-md"
-                    }`}
-                  >
-                    {/* Rank & Avatar */}
-                    <div className="flex items-center space-x-4 flex-1">
-                      <div
-                        className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-lg ${getRankColor(
-                          student.rank
-                        )}`}
-                      >
-                        {getRankIcon(student.rank)}
-                      </div>
-
-                      <div className="flex items-center space-x-3">
-                        {student.avatarUrl ? (
-                          <img
-                            src={student.avatarUrl}
-                            alt={student.studentName}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-primary-200 flex items-center justify-center">
-                            <span className="text-primary-700 font-semibold">
-                              {student.studentName.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                        <div>
-                          <p
-                            className={`font-semibold ${
-                              isCurrentUser
-                                ? "text-primary-900"
-                                : "text-secondary-900"
-                            }`}
-                          >
-                            {student.studentName}
-                          </p>
-                          <p className="text-xs text-secondary-500">
-                            Hoàn thành lúc{" "}
-                            {new Date(student.completedAt).toLocaleTimeString(
-                              "vi-VN",
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              }
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center space-x-6">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-primary-600">
-                          {student.score}
-                        </div>
-                        <div className="text-xs text-secondary-600">điểm</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-semibold text-secondary-700">
-                          {accuracy}%
-                        </div>
-                        <div className="text-xs text-secondary-600">
-                          chính xác
-                        </div>
-                      </div>
-                      <div className="text-center min-w-[60px]">
-                        <div className="text-lg font-semibold text-secondary-700">
-                          {formatTime(student.timeSpent)}
-                        </div>
-                        <div className="text-xs text-secondary-600">
-                          thời gian
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-primary-50 rounded-2xl p-5 text-center">
+              <Target className="w-8 h-8 text-primary-600 mx-auto mb-3" />
+              <div className="text-4xl font-black text-primary-700">
+                {accuracy}%
+              </div>
+              <p className="text-sm text-secondary-500 mt-1">Độ chính xác</p>
+            </div>
+            <div className="bg-green-50 rounded-2xl p-5 text-center">
+              <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-3" />
+              <div className="text-4xl font-black text-green-600">
+                {correctAnswers}
+              </div>
+              <p className="text-sm text-secondary-500 mt-1">Câu đúng</p>
+            </div>
+            <div className="bg-blue-50 rounded-2xl p-5 text-center">
+              <Clock className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+              <div className="text-4xl font-black text-blue-600">
+                {averageTime}s
+              </div>
+              <p className="text-sm text-secondary-500 mt-1">Thời gian TB/câu</p>
             </div>
           </div>
         </div>
 
-        {/* Back Button */}
-        <div className="mt-8 text-center">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => navigate("/student/classes")}
-          >
-            <ChevronLeft className="w-5 h-5 mr-2" />
-            Quay về lớp học
-          </Button>
+        {/* Question Detail */}
+        <div className="bg-white rounded-3xl shadow-xl p-6 md:p-8">
+          <h3 className="text-2xl font-bold text-secondary-900 mb-6">
+            Chi tiết từng câu hỏi
+          </h3>
+
+          <div className="space-y-4">
+            {questionDetails.map((question, index) => {
+              const options = question.options ?? [];
+              const isCorrect =
+                question.selectedOptionId === question.correctOptionId;
+
+              return (
+                <div
+                  key={question.questionId}
+                  className={`rounded-2xl p-5 border-2 ${
+                    isCorrect
+                      ? "bg-green-50 border-green-200"
+                      : "bg-red-50 border-red-200"
+                  }`}
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-white ${
+                          isCorrect ? "bg-green-500" : "bg-red-500"
+                        }`}
+                      >
+                        {index + 1}
+                      </div>
+                      <p className="font-semibold text-secondary-900">
+                        {question.questionContent}
+                      </p>
+                    </div>
+                    <div
+                      className={`flex items-center gap-2 font-semibold ${
+                        isCorrect ? "text-green-700" : "text-red-700"
+                      }`}
+                    >
+                      {isCorrect ? (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          Đúng
+                        </>
+                      ) : (
+                        <>
+                          <XCircle className="w-4 h-4" />
+                          Sai
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {options.map((option) => {
+                      const isSelected =
+                        option.optionId === question.selectedOptionId;
+                      const isCorrectOpt =
+                        option.optionId === question.correctOptionId;
+
+                      return (
+                        <div
+                          key={option.optionId}
+                          className={`p-3 rounded-lg border flex items-center gap-2 ${
+                            isCorrectOpt
+                              ? "bg-green-100 border-green-300"
+                              : isSelected
+                              ? "bg-red-100 border-red-300"
+                              : "bg-gray-50 border-gray-200"
+                          }`}
+                        >
+                          {isCorrectOpt && (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          )}
+                          {isSelected && !isCorrectOpt && (
+                            <XCircle className="w-4 h-4 text-red-600" />
+                          )}
+                          <span
+                            className={
+                              isCorrectOpt || isSelected ? "font-semibold" : ""
+                            }
+                          >
+                            {option.optionContent}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

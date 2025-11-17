@@ -65,8 +65,6 @@ export default function PlayResult() {
     accuracy: 67,
   };
 
-  // Leaderboard: hiển thị cho class mode và live mode
-  // Solo mode: chỉ hiển thị kết quả riêng của người chơi
   const leaderboard: LeaderboardEntry[] = isSoloMode
     ? [
         {
