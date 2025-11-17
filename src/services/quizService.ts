@@ -112,6 +112,24 @@ class QuizService {
     );
     return response;
   }
+
+  /**
+   * Get correct answer for a question
+   * POST /api/Quiz/GetCorrectAnswers
+   */
+  async getCorrectAnswer(quizId: number, questionId: number): Promise<{
+    optionId: number;
+    optionContent: string;
+  }> {
+    const response = await apiClient.post<{
+      optionId: number;
+      optionContent: string;
+    }>("/Quiz/GetCorrectAnswers", {
+      quizId,
+      questionId,
+    });
+    return response;
+  }
 }
 
 export const quizService = new QuizService();
