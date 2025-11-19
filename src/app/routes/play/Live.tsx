@@ -478,25 +478,23 @@ export default function PlayLive() {
     return `${baseClasses} ${answerColors[index].bg} ${answerColors[index].hover} hover:scale-105 active:scale-95`;
   };
 
-  if (isLoading) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-xl font-semibold">Đang tải quiz...</p>
+        <div className="text-center text-white max-w-md">
+          <p className="text-xl font-semibold mb-4">{error}</p>
+          <Button onClick={() => navigate(-1)}>Quay lại</Button>
         </div>
       </div>
     );
   }
 
-  if (error || !currentQuestion) {
+  if (isLoading || !currentQuestion) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 flex items-center justify-center">
-        <div className="text-center text-white max-w-md">
-          <p className="text-xl font-semibold mb-4">
-            {error || "Không tìm thấy câu hỏi"}
-          </p>
-          <Button onClick={() => navigate(-1)}>Quay lại</Button>
+        <div className="text-center text-white">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-xl font-semibold">Đang tải quiz...</p>
         </div>
       </div>
     );
