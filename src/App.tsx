@@ -5,8 +5,11 @@ import { Toaster } from "react-hot-toast";
 import { router } from "./libs/router";
 import { queryClient } from "./libs/queryClient";
 import "./index.css";
+import { useNotificationHub } from "./hooks/useNotificationHub";
 
 function App() {
+  useNotificationHub();
+
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

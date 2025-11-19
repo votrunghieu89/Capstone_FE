@@ -51,10 +51,6 @@ export default function PlayResult() {
   const isClassMode = sessionId?.startsWith("class-");
   const isLiveMode = !isSoloMode && !isClassMode;
 
-  // Mock data - sẽ thay thế bằng API call thực tế
-  // Trong class mode: hiển thị leaderboard toàn lớp
-  // Trong solo mode: chỉ hiển thị kết quả cá nhân
-  // Trong live mode: hiển thị leaderboard realtime
   const result: FinalResult = {
     myScore: 25, // 10 điểm/câu x 2.5 câu trung bình
     totalQuestions: 3,

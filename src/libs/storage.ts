@@ -1,6 +1,12 @@
-const TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
-const USER_KEY = 'user_data';
+const TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
+const USER_KEY = "user_data";
+
+const emitEvent = (name: string) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(name));
+  }
+};
 
 export const storage = {
   // Token management
@@ -48,6 +54,8 @@ export const storage = {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    emitEvent("auth:logout");
+    emitEvent("userUpdated");
   },
 
   // Check if user is authenticated
