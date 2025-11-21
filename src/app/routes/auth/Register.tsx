@@ -12,6 +12,16 @@ import { authApi } from "../../../libs/api/authApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
 import { handleGoogleAuth, getRedirectPath } from "../../../utils/googleAuth";
 
+const defaultFormValues = {
+  role: "Student" as const,
+  email: "",
+  password: "",
+  confirmPassword: "",
+  name: "",
+  address: "",
+  organizationName: "",
+};
+
 const registerSchema = z
   .object({
     email: z
@@ -37,19 +47,25 @@ const registerSchema = z
     message: "Mật khẩu xác nhận không khớp",
     path: ["confirmPassword"],
   })
-  .refine(
-    (data) => {
-      // Nếu là Teacher, yêu cầu organizationName và address
-      if (data.role === "Teacher") {
-        return !!data.organizationName && !!data.address;
-      }
-      return true;
-    },
-    {
-      message: "Giáo viên phải nhập tên trường/tổ chức và địa chỉ",
-      path: ["organizationName"],
+  .superRefine((data, ctx) => {
+    if (data.role !== "Teacher") return;
+
+    if (!data.organizationName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Giáo viên phải nhập tên trường/tổ chức",
+        path: ["organizationName"],
+      });
     }
-  );
+
+    if (!data.address) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Giáo viên phải nhập địa chỉ trường/tổ chức",
+        path: ["address"],
+      });
+    }
+  });
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
@@ -70,20 +86,27 @@ export default function Register() {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
     watch,
+    reset,
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      role: "Student",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      name: "",
-      address: "",
-      organizationName: "",
-    },
+    defaultValues: defaultFormValues,
   });
+
+  const handleRoleChange = (role: "Student" | "Teacher") => {
+    if (currentRole === role) return;
+    reset(
+      {
+        ...defaultFormValues,
+        role,
+      },
+      {
+        keepErrors: false,
+        keepDirty: false,
+        keepTouched: false,
+      }
+    );
+  };
 
   // Handle Google Register (use selected role)
   const handleGoogleRegister = async () => {
@@ -340,7 +363,7 @@ export default function Register() {
                   <div className="inline-flex w-full md:w-auto bg-white rounded-full p-1 border border-secondary-200">
                     <button
                       type="button"
-                      onClick={() => setValue("role", "Student")}
+                      onClick={() => handleRoleChange("Student")}
                       className={`px-5 py-2 rounded-full text-sm font-medium transition ${
                         currentRole === "Student"
                           ? "bg-secondary-900 text-white"
@@ -351,7 +374,7 @@ export default function Register() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setValue("role", "Teacher")}
+                      onClick={() => handleRoleChange("Teacher")}
                       className={`px-5 py-2 rounded-full text-sm font-medium transition ${
                         currentRole === "Teacher"
                           ? "bg-secondary-900 text-white"
