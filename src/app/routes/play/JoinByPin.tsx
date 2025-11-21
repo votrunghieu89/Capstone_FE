@@ -1,14 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Hash,
-  User,
-  Play,
-  ArrowLeft,
-  Users,
-  Clock,
-  BookOpen,
-} from "lucide-react";
+import { Hash, User, Play, ArrowLeft } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
 import { Logo } from "../../../components/common/Logo";
@@ -33,7 +25,9 @@ export default function JoinByPin() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Navigate to shared lobby (public route, no role restriction)
-      navigate(`/lobby/${pinCode}`, { state: { from: "/play/join" } });
+      navigate(`/lobby/${pinCode}`, {
+        state: { from: "/play/join", nickname: nickname.trim() },
+      });
     } catch (error) {
       console.error("Join session error:", error);
     } finally {
@@ -110,48 +104,6 @@ export default function JoinByPin() {
             </form>
           </div>
         </div>
-
-        {/* Quiz Info Preview */}
-        {pinCode.length >= 3 && (
-          <div className="backdrop-blur-lg bg-white/80 rounded-2xl shadow-xl border border-white/30 mt-6">
-            <div className="px-6 md:px-8 py-6">
-              <h3 className="text-lg font-semibold text-secondary-900 mb-4">
-                Thông tin Quiz
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <BookOpen className="w-5 h-5 text-primary-600 mr-3" />
-                  <div>
-                    <p className="font-medium text-secondary-900">
-                      Kiểm tra Toán học lớp 10
-                    </p>
-                    <p className="text-sm text-secondary-600">
-                      Bài kiểm tra về đại số và hình học
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <Users className="w-5 h-5 text-primary-600 mr-3" />
-                  <div>
-                    <p className="font-medium text-secondary-900">
-                      25 người chơi
-                    </p>
-                    <p className="text-sm text-secondary-600">Đã tham gia</p>
-                  </div>
-                </div>
-                <div className="flex items-center">
-                  <Clock className="w-5 h-5 text-primary-600 mr-3" />
-                  <div>
-                    <p className="font-medium text-secondary-900">30 phút</p>
-                    <p className="text-sm text-secondary-600">
-                      Thời gian dự kiến
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Back Button */}
         <div className="text-center mt-6">

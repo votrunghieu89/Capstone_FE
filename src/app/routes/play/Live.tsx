@@ -1,12 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Users, Clock, X, AlertTriangle } from "lucide-react";
+import { Users, Clock, X, AlertTriangle, Award } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
 import { storage } from "../../../libs/storage";
 import { quizService, QuestionDetail } from "../../../services/quizService";
+import { onlineQuizService } from "../../../services/onlineQuizService";
 import { offlineQuizService } from "../../../services/offlineQuizService";
 import { toast } from "react-hot-toast";
+import {
+  ONLINE_SESSION_STORAGE_KEY,
+  OnlineSessionContext,
+  StudentCompleteResult,
+} from "../../../types/realtime";
+import { getSharedQuizHubConnection } from "../../../libs/quizHub";
+import type { HubConnection } from "@microsoft/signalr";
 
 export default function PlayLive() {
   const navigate = useNavigate();
@@ -34,6 +42,10 @@ export default function PlayLive() {
     quizId = parseInt(parts[1]);
     // Lấy qgId từ location.state nếu có (truyền từ Classes page)
     qgId = (location.state as any)?.qgId || null;
+  }
+
+  if (!isOfflineMode) {
+    return <OnlineLiveMode />;
   }
 
   // State cho questions từ API
@@ -680,6 +692,314 @@ export default function PlayLive() {
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function OnlineLiveMode() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { sessionId } = useParams();
+  const [context, setContext] = useState<OnlineSessionContext | null>(null);
+  const [questions, setQuestions] = useState<QuestionDetail[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [answerLocked, setAnswerLocked] = useState(false);
+  const [waitingSummary, setWaitingSummary] = useState(false);
+  const [completeResult, setCompleteResult] = useState<StudentCompleteResult | null>(null);
+  const connectionRef = useRef<HubConnection | null>(null);
+
+  useEffect(() => {
+    const stateCtx = location.state as OnlineSessionContext | undefined;
+    const storedRaw = sessionStorage.getItem(ONLINE_SESSION_STORAGE_KEY);
+    const storedCtx = storedRaw ? (JSON.parse(storedRaw) as OnlineSessionContext) : null;
+    const effective =
+      stateCtx?.mode === "online"
+        ? stateCtx
+        : storedCtx?.mode === "online"
+        ? storedCtx
+        : null;
+    if (!effective) {
+      setError("Không tìm thấy thông tin phiên live. Vui lòng quay lại trang nhập PIN.");
+      setLoading(false);
+      return;
+    }
+    setContext(effective);
+  }, [location.state]);
+
+  useEffect(() => {
+    if (!context) return;
+    let mounted = true;
+    setLoading(true);
+    quizService
+      .getQuizQuestions(context.quizId)
+      .then((data) => {
+        if (!mounted) return;
+        if (!data || data.length === 0) {
+          setError("Không tìm thấy câu hỏi cho quiz này.");
+          return;
+        }
+        setQuestions(data);
+        setTimeLeft(data[0].time);
+      })
+      .catch((err) => {
+        console.error(err);
+        setError("Không thể tải câu hỏi quiz.");
+      })
+      .finally(() => mounted && setLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, [context]);
+
+  useEffect(() => {
+    if (!context) return;
+    const conn = getSharedQuizHubConnection();
+    if (!conn) {
+      setError("Kết nối live đã bị gián đoạn. Vui lòng quay lại trang join.");
+      return;
+    }
+    connectionRef.current = conn;
+    const handleComplete = (payload: StudentCompleteResult) => {
+      setCompleteResult(payload);
+      setWaitingSummary(false);
+    };
+    const handleEnd = () => {
+      setWaitingSummary(false);
+    };
+    const handleRoomClosed = (message?: string) => {
+      setWaitingSummary(false);
+      toast.error(message || "Giáo viên đã đóng phòng.");
+      sessionStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+      navigate("/play/join");
+    };
+    conn.on("CompleteQuiz", handleComplete);
+    conn.on("GameEnded", handleEnd);
+    conn.on("EndClick", handleRoomClosed);
+    conn.on("EndBeforeStartGame", handleRoomClosed);
+    return () => {
+      conn.off("CompleteQuiz", handleComplete);
+      conn.off("GameEnded", handleEnd);
+      conn.off("EndClick", handleRoomClosed);
+      conn.off("EndBeforeStartGame", handleRoomClosed);
+    };
+  }, [context]);
+
+  useEffect(() => {
+    if (!questions[currentIndex]) return;
+    setTimeLeft(questions[currentIndex].time);
+    setSelectedOption(null);
+    setAnswerLocked(false);
+  }, [currentIndex, questions]);
+
+  useEffect(() => {
+    if (!context || !questions[currentIndex]) return;
+    if (answerLocked || waitingSummary || completeResult || loading) return;
+    if (timeLeft <= 0) {
+      handleSubmit(null, "timeout");
+      return;
+    }
+    const timer = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, answerLocked, waitingSummary, completeResult, context, questions, loading]);
+
+  useEffect(() => {
+    if (!answerLocked) return;
+    if (currentIndex >= questions.length - 1) {
+      const timeout = setTimeout(() => {
+        setWaitingSummary(true);
+        setAnswerLocked(false);
+      }, 1000);
+      return () => clearTimeout(timeout);
+    }
+    const timeout = setTimeout(() => {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedOption(null);
+      setAnswerLocked(false);
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [answerLocked, currentIndex, questions.length]);
+
+  const handleSubmit = async (
+    optionIndex: number | null,
+    reason: "manual" | "timeout"
+  ) => {
+    if (!context) return;
+    const currentQuestion = questions[currentIndex];
+    if (!currentQuestion || answerLocked) return;
+    setSelectedOption(optionIndex);
+    setAnswerLocked(true);
+    try {
+      const optionId =
+        optionIndex !== null
+          ? currentQuestion.options[optionIndex]?.optionId ?? null
+          : null;
+      await onlineQuizService.submitOnlineAnswer({
+        roomCode: context.roomCode,
+        studentId: context.studentId,
+        quizId: context.quizId,
+        questionId: currentQuestion.questionId,
+        optionId,
+      });
+      if (reason === "timeout") {
+        toast.error("Hết thời gian cho câu hỏi này.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Không gửi được đáp án, vui lòng thử lại.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 flex items-center justify-center text-white">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p>Đang chuẩn bị quiz...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !context) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 flex items-center justify-center text-white text-center px-6">
+        <div className="max-w-md space-y-4">
+          <p className="text-xl font-semibold">{error || "Không thể bắt đầu quiz."}</p>
+          <Button onClick={() => navigate("/play/join")}>Quay lại nhập PIN</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+  if (!currentQuestion) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 relative overflow-hidden">
+      <div className="absolute inset-0 opacity-60 pointer-events-none">
+        <div className="absolute top-20 left-12 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-24 right-12 w-80 h-80 bg-pink-300/20 rounded-full blur-3xl"></div>
+      </div>
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 space-y-8">
+        <div className="flex items-center justify-between text-white">
+          <div>
+            <p className="text-sm opacity-80">Mã PIN</p>
+            <p className="text-2xl font-black tracking-widest">{context.roomCode}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm opacity-80">Tên bạn</p>
+            <p className="text-xl font-bold">{context.studentName}</p>
+          </div>
+        </div>
+
+        <div className="flex justify-center">
+          <div className="relative">
+            <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center">
+              <span className="text-5xl font-black text-white">{timeLeft}</span>
+            </div>
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-purple-600 px-4 py-1 rounded-full text-xs font-bold">
+              giây
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white/95 rounded-3xl p-8 shadow-2xl">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center">
+            {currentQuestion.questionContent}
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {currentQuestion.options.map((option, index) => (
+            <button
+              key={option.optionId}
+              onClick={() => {
+                if (!answerLocked) {
+                  setSelectedOption(index);
+                }
+              }}
+              disabled={answerLocked}
+              className={`rounded-2xl p-6 text-left text-white transition transform ${
+                ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"][index]
+              } ${selectedOption === index ? "ring-4 ring-white scale-105" : "hover:scale-105"}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white/30 rounded-xl flex items-center justify-center text-2xl">
+                  {["△", "◆", "○", "□"][index]}
+                </div>
+                <p className="text-lg md:text-xl font-semibold flex-1">{option.optionContent}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex justify-center">
+          <Button
+            onClick={() => handleSubmit(selectedOption, "manual")}
+            disabled={answerLocked || selectedOption === null}
+          >
+            {answerLocked ? "Đã gửi đáp án" : "Lưu câu trả lời"}
+          </Button>
+        </div>
+
+        {waitingSummary && (
+          <div className="text-center text-white space-y-4">
+            <div>
+              <p className="text-xl font-semibold">
+                Đã hoàn thành tất cả câu hỏi.
+              </p>
+              <p className="text-white/80">
+                Đang chờ giáo viên kết thúc và công bố kết quả...
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center">
+              <Button variant="outline" onClick={() => navigate("/")}>
+                Về trang chủ
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/play/join")}>
+                Nhập mã PIN khác
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {completeResult && (
+          <div className="bg-white/95 rounded-3xl p-8 shadow-2xl text-gray-900 space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-yellow-200 flex items-center justify-center">
+                <Award className="w-8 h-8 text-yellow-700" />
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-gray-500">Kết quả</p>
+                <p className="text-2xl font-black text-purple-700">
+                  {completeResult.score} điểm - Hạng {completeResult.rank}
+                </p>
+              </div>
+            </div>
+            <p>
+              Chính xác:{" "}
+              <span className="font-bold">
+                {completeResult.correctCount}/{completeResult.totalQuestions}
+              </span>
+            </p>
+            <p>Sai: {completeResult.wrongCount}</p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => navigate("/")}>
+                Về trang chủ
+              </Button>
+              <Button onClick={() => navigate(`/quiz/preview/${context.quizId}`)}>
+                Xem chi tiết quiz
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

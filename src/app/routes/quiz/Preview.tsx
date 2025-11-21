@@ -36,8 +36,6 @@ export default function QuizPreview() {
         classId?: number | null;
       }
     | undefined;
-  const previousPath = previewState?.from || "/search";
-
   // Check if this quiz is from a class
   const classIdParam = searchParams.get("classId");
   const classIdFromState = previewState?.classId
@@ -285,7 +283,13 @@ export default function QuizPreview() {
     // Giáo viên tổ chức live - chuyển đến trang phòng chờ (shared lobby)
     // Pass state to indicate this is the host/creator
     navigate(`/lobby/${quiz.quizId}`, {
-      state: { isHost: true, from: `/preview/${quiz.quizId}` },
+      state: {
+        isHost: true,
+        from: `/quiz/preview/${quiz.quizId}`,
+        quizId: quiz.quizId,
+        quizTitle: quiz.title,
+        totalQuestions: quiz.totalQuestions ?? questions.length ?? 0,
+      },
     });
   };
 
@@ -351,7 +355,7 @@ export default function QuizPreview() {
               </ul>
             </div>
           )}
-          <Button onClick={() => navigate(previousPath)}>Quay lại</Button>
+          <Button onClick={() => navigate("/")}>Quay lại</Button>
         </div>
       </div>
     );
@@ -362,7 +366,7 @@ export default function QuizPreview() {
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/")}
           className="inline-flex items-center text-sm text-secondary-600 hover:text-secondary-900 mb-6 transition-colors"
         >
           <ChevronLeft className="w-4 h-4 mr-1" /> Quay lại
