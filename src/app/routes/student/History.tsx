@@ -1,5 +1,6 @@
+//history.tsx
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { BookOpen, Loader2 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 
@@ -13,7 +14,7 @@ export default function StudentHistory() {
   const navigate = useNavigate();
   const [filterType, setFilterType] = useState<"all" | "public" | "private">("all");
   const [searchTerm, setSearchTerm] = useState("");
-
+  const location = useLocation();
   const user = storage.getUser();
   const accountId = user?.id;
 
@@ -22,7 +23,6 @@ export default function StudentHistory() {
  
   const studentId =
     (profile as any)?.profile?.studentId ?? (profile as any)?.data?.studentId ?? (profile as any)?.result?.studentId ?? undefined;
-    
 
   const {
     data: historyData,
@@ -36,16 +36,19 @@ export default function StudentHistory() {
   const history: QuizHistory[] = historyData || [];
 
   const filteredResults = useMemo(() => {
-    return history.filter((quiz) =>
-      quiz.QuizTitle.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [history, searchTerm]);
+  const s = String(searchTerm ?? "").toLowerCase();
 
-  const handleViewDetail = (quizId: string, completedAt: string) => {
-    if (!studentId) return;
-    navigate(`/report/detail/${studentId}/${quizId}?date=${completedAt}`);
-  };
+  return history.filter((quiz) => {
+    // ensure we have a string toLowerCase can be called on
+    const title = quiz?.QuizTitle ?? "";
+    return String(title).toLowerCase().includes(s);
+  });
+}, [history, searchTerm]);
+  const handleViewDetail = (quizId: number,completedAt: string) => {
+  //navigate(`/report/detail/${studentId}/${quizId}?CreateAt=${completedAt}`);
+  navigate(`/report/detail/${studentId}/${quizId}?CreateAt=2025-11-18T14:40:58.4229637`);
 
+};
   return (
     <div className="w-full">
         <div className="mb-8 flex justify-between items-center"> <div> <h1 className="text-3xl font-bold text-secondary-900 mb-2">📖 Lịch sử Quiz</h1> <p className="text-secondary-600">Xem lại các quiz đã hoàn thành</p> </div> </div>
@@ -71,13 +74,17 @@ export default function StudentHistory() {
 
       {!isLoading && !error && filteredResults.length > 0 && (
         <div className="space-y-4">
-          {filteredResults.map((result) => (
-            <HistoryResultCard
-              key={result.QuizId}
-              result={result}
-              onViewDetail={() => handleViewDetail(result.QuizId.toString(), result.CompletedAt)}
-            />
-          ))}
+          {filteredResults.map((result) => {
+  console.log("History result item:", result); // 👈 đặt ở đây
+
+  return (
+    <HistoryResultCard
+      key={result.QuizId}
+      result={result}
+      onViewDetail={() => handleViewDetail(result.QuizId, result.CompletedAt)}
+    />
+  );
+})}
         </div>
       )}
 

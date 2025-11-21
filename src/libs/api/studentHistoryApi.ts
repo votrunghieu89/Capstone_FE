@@ -3,9 +3,34 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../apiClient'; 
 import { QuizHistory, QuizDetail } from '../../types/quiz'; 
 
+const mapQuizHistory = (item: any): QuizHistory => ({
+    QuizId: item.quizId?.toString() ?? "",
+    QuizTitle: item.quizTitle ?? "Không rõ",
+    TotalQuestions: item.totalQuestions ?? 0,
+    CompletedAt: item.completedAt ?? "",
+
+    CreatedBy: item.createBy ?? "",
+    CompletedBy: item.completedBy ?? "",
+
+    AvatarURL: item.avatarURL ?? null,
+    GroupName: item.groupName ?? null,
+
+    // FE thêm
+    score: item.score ?? 0,
+    maxScore: item.maxScore ?? 0,
+    correctAnswers: item.correctAnswers ?? 0,
+    timeSpent: item.timeSpent ?? 0,
+    topic: item.topic,
+    difficulty: item.difficulty,
+    class: item.class,
+    teacher: item.teacher,
+    CreatedAt:item.createdAt,
+});
 const fetchRawData = async (url: string): Promise<any> => {
     try {
         const res = await apiClient.get(url);
+        console.log("🔥 RAW API RESPONSE FOR URL:", url);
+        console.log(JSON.stringify(res, null, 2));
         return res; // Giả định apiClient trả về data thuần
     } catch (error: any) {
         // Xử lý lỗi 404 (Không tìm thấy dữ liệu) bằng cách trả về mảng rỗng
@@ -21,16 +46,23 @@ const fetchRawData = async (url: string): Promise<any> => {
 const fetchPublicQuizzes = async (studentId: number): Promise<QuizHistory[]> => {
     const publicUrl = `/StudentReport/public-quizzes/${studentId}`;
     let publicRes = await fetchRawData(publicUrl);
-    // Gán GroupName = null cho Quiz Homepage
-    return publicRes.map((q: QuizHistory) => ({ ...q, GroupName: null })) as QuizHistory[]; 
-};
+    console.log("🔥 RAW PUBLIC QUIZ API:", publicRes);
 
+    return publicRes.map((q: any) => ({
+        ...mapQuizHistory(q),
+        GroupName: null, // public quiz không có lớp
+    }));
+};
 // Hàm lấy Quiz Nhóm lớp (Private)
 const fetchPrivateQuizzes = async (studentId: number): Promise<QuizHistory[]> => {
     const privateUrl = `/StudentReport/private-quizzes/${studentId}`;
     let privateRes = await fetchRawData(privateUrl);
-    // Gán GroupName/isClassQuiz
-    return privateRes.map((q: QuizHistory) => ({ ...q, GroupName: q.GroupName || 'Nhóm lớp' })) as QuizHistory[];
+    console.log("🔥 RAW PRIVATE QUIZ API:", privateRes);
+
+    return privateRes.map((q: any) => ({
+        ...mapQuizHistory(q),
+        GroupName: q.groupName ?? "Nhóm lớp",
+    }));
 };
 
 /**
@@ -41,6 +73,7 @@ export const useGetStudentHistory = (studentId: number, filterType: 'all' | 'pub
         queryKey: ['studentHistory', studentId, filterType],
         queryFn: async () => {
             let publicRes: QuizHistory[] = [];
+            
             let privateRes: QuizHistory[] = [];
 
             // 🛑 LỌC LOGIC 🛑
@@ -67,7 +100,8 @@ export const useGetStudentHistory = (studentId: number, filterType: 'all' | 'pub
             }
             
             const allHistory = [...publicRes, ...privateRes] as QuizHistory[];
-            
+            console.log("📌 MAPPED HISTORY:", allHistory);
+
             // Sắp xếp theo ngày hoàn thành (mới nhất lên trước)
             return allHistory.sort((a, b) => new Date(b.CompletedAt).getTime() - new Date(a.CompletedAt).getTime());
         },

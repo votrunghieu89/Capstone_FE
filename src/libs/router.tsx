@@ -166,14 +166,7 @@ export const router = createBrowserRouter(
     { path: "/lobby/:sessionId", element: <HostLobby /> },
     { path: "/quiz/preview/:quizId", element: <QuizPreview /> },
     { path: "/quiz/result/:quizId", element: <SoloResult /> },
-    { 
-      path: "/report/detail/:id", 
-      element: (
-        <RequireAuth>
-          <QuizDetail />
-        </RequireAuth>
-      ),
-    },
+    
     { path: "/search", element: <BrowseQuizzes /> },
     {
       path: "/favourites",

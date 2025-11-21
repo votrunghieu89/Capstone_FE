@@ -1,12 +1,14 @@
+//quizdetail.tsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios'; // ✅ thêm axios
+//import axios from 'axios'; // ✅ thêm axios
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/common/Card'; 
 import { Button } from '../../../components/common/Button'; 
 import { Avatar, AvatarImage } from '../../../components/common/Avatar'; 
 import { Badge } from '../../../components/common/Badge'; 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/common/Tabs';
 import { ArrowLeft, Calendar, Clock, Users, Trophy, CheckCircle, XCircle } from 'lucide-react';
+import { apiClient } from "../../../libs/apiClient";
 
 export default function QuizDetail() {
   const { studentId, quizId } = useParams<{ studentId: string; quizId: string }>();
@@ -20,12 +22,15 @@ export default function QuizDetail() {
 
   // ✅ Gọi API khi có studentId và quizId
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const createAt = searchParams.get('CreateAt') || '';
+    console.log('Detail Params:', { studentId, quizId, createAt });
     const fetchQuizDetail = async () => {
       try {
-        const response = await axios.get(
-          `http://localhost:5119/api/StudentReport/quiz-detail/${studentId}/${quizId}`
+        const response = await apiClient.get(
+           `/StudentReport/quiz-detail/${studentId}/${quizId}?CreateAt=${encodeURIComponent(createAt)}`
         );
-        setQuizData(response.data);
+        setQuizData(response);
       } catch (err) {
         console.error("Lỗi khi tải chi tiết quiz:", err);
         setError("Không thể tải dữ liệu quiz.");
@@ -33,9 +38,7 @@ export default function QuizDetail() {
         setLoading(false);
       }
     };
-    const searchParams = new URLSearchParams(location.search);
-    const completedAt = searchParams.get('date') || '';
-    console.log('Detail Params:', { studentId, quizId, completedAt });
+    
 
     if (studentId && quizId) fetchQuizDetail();
   }, [studentId, quizId]);
@@ -108,7 +111,7 @@ export default function QuizDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-blue-600">
-                    {quizData.TotalQuestions}
+                    {quizData.totalQuestions}
                   </div>
                 </CardContent>
               </Card>
@@ -119,7 +122,7 @@ export default function QuizDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-green-600">
-                    {quizData.NumberOfCorrectAnswers}
+                    {quizData.numberOfCorrectAnswers}
                   </div>
                 </CardContent>
               </Card>
@@ -130,7 +133,7 @@ export default function QuizDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-red-600">
-                    {quizData.NumberOfWrongAnswers}
+                    {quizData.numberOfWrongAnswers}
                   </div>
                 </CardContent>
               </Card>
@@ -141,7 +144,7 @@ export default function QuizDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-purple-600">
-                    {quizData.FinalScore}%
+                    {quizData.finalScore}%
                   </div>
                 </CardContent>
               </Card>
@@ -153,18 +156,7 @@ export default function QuizDetail() {
                 <CardContent>
                   <div className="flex items-center gap-2">
                     <Trophy className="h-6 w-6 text-yellow-500" />
-                    <div className="text-2xl font-bold text-yellow-600">#{quizData.Rank}</div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm text-gray-600">Người hoàn thành</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-lg font-medium text-gray-900">
-                    {quizData.CompletedBy}
+                    <div className="text-2xl font-bold text-yellow-600">#{quizData.rank}</div>
                   </div>
                 </CardContent>
               </Card>
@@ -178,12 +170,12 @@ export default function QuizDetail() {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-600">Bắt đầu:</span>
-                      <span className="font-medium">{formatDate(quizData.StartDate)}</span>
+                      <span className="font-medium">{formatDate(quizData.startDate)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-gray-500" />
                       <span className="text-sm text-gray-600">Hoàn thành:</span>
-                      <span className="font-medium">{formatDate(quizData.CompletedAt)}</span>
+                      <span className="font-medium">{formatDate(quizData.completedAt)}</span>
                     </div>
                   </div>
                 </CardContent>
