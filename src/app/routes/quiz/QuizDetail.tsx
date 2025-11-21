@@ -26,18 +26,30 @@ export default function QuizDetail() {
     const createAt = searchParams.get('CreateAt') || '';
     console.log('Detail Params:', { studentId, quizId, createAt });
     const fetchQuizDetail = async () => {
-      try {
-        const response = await apiClient.get(
-           `/StudentReport/quiz-detail/${studentId}/${quizId}?CreateAt=${encodeURIComponent(createAt)}`
-        );
-        setQuizData(response);
-      } catch (err) {
-        console.error("Lỗi khi tải chi tiết quiz:", err);
-        setError("Không thể tải dữ liệu quiz.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  try {
+    const response: any = await apiClient.get(
+      `/StudentReport/quiz-detail/${studentId}/${quizId}?CreateAt=${encodeURIComponent(createAt)}`
+    );
+
+    setQuizData({
+      ...response,
+      Questions: response.questionDetails?.map((q: any) => ({
+        id: q.questionId,
+        questionText: q.questionContent,
+        options: q.answers.map((a: any) => a.optionContent),
+        correctAnswer: q.answers.find((a: any) => a.isCorrect)?.optionContent,
+        userAnswer: q.answers.find((a: any) => a.isSelected)?.optionContent,
+        isCorrect: q.answers.some((a: any) => a.isCorrect && a.isSelected),
+      })) || [],
+    });
+
+  } catch (err) {
+    console.error("Lỗi khi tải chi tiết quiz:", err);
+    setError("Không thể tải dữ liệu quiz.");
+  } finally {
+    setLoading(false);
+  }
+};
     
 
     if (studentId && quizId) fetchQuizDetail();
@@ -94,11 +106,9 @@ export default function QuizDetail() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="participants">
-              Participants ({quizData.Participants?.length || 0})
-            </TabsTrigger>
+            
             <TabsTrigger value="questions">
-              Questions ({quizData.TotalQuestions || 0})
+              Questions ({quizData.totalQuestions || 0})
             </TabsTrigger>
           </TabsList>
 
@@ -144,7 +154,7 @@ export default function QuizDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-purple-600">
-                    {quizData.finalScore}%
+                    {quizData.finalScore}
                   </div>
                 </CardContent>
               </Card>
@@ -183,56 +193,7 @@ export default function QuizDetail() {
             </div>
           </TabsContent>
 
-          {/* Participants */}
-          <TabsContent value="participants" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />Danh sách người tham gia
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px]">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="py-3 px-4 text-left text-gray-600">Nickname</th>
-                        <th className="py-3 px-4 text-left text-gray-600">Rank</th>
-                        <th className="py-3 px-4 text-left text-gray-600">Correct answers</th>
-                        <th className="py-3 px-4 text-left text-gray-600">Unanswered</th>
-                        <th className="py-3 px-4 text-left text-gray-600">Final score</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {quizData.Participants?.map((p: any) => (
-                        <tr key={p.id} className="border-b hover:bg-gray-50">
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={p.avatarUrl} />
-                              </Avatar>
-                              <span className="font-medium">{p.nickname}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <Badge variant={p.rank === 1 ? 'default' : 'secondary'}>#{p.rank}</Badge>
-                          </td>
-                          <td className="py-3 px-4 text-green-600 font-medium">
-                            {p.correctAnswers}
-                          </td>
-                          <td className="py-3 px-4 text-gray-600">{p.unanswered}</td>
-                          <td className="py-3 px-4 font-bold text-purple-600">
-                            {p.finalScore}%
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
+          
           {/* Questions */}
           <TabsContent value="questions" className="mt-6">
             <div className="space-y-6">

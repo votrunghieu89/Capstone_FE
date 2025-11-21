@@ -85,8 +85,8 @@ export interface QuizHistory {
     QuizTitle: string; // Tên Quiz
     TotalQuestions: number; // Tổng số câu hỏi
     CompletedAt: string; // Ngày hoàn thành
-    CreatedAt:string;
-    // 💡 TRƯỜNG PHÂN BIỆT VAI TRÒ 💡
+    //CreatedAt:string;
+    creatAt:string;
     CreatedBy: string; // Tên NGƯỜI TẠO (Giáo viên)
     CompletedBy?: string; // Tên NGƯỜI HOÀN THÀNH (Học sinh)
 

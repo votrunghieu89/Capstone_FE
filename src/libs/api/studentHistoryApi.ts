@@ -16,7 +16,7 @@ const mapQuizHistory = (item: any): QuizHistory => ({
     GroupName: item.groupName ?? null,
 
     // FE thêm
-    score: item.score ?? 0,
+    score: item.finalScore ?? 0,
     maxScore: item.maxScore ?? 0,
     correctAnswers: item.correctAnswers ?? 0,
     timeSpent: item.timeSpent ?? 0,
@@ -24,7 +24,7 @@ const mapQuizHistory = (item: any): QuizHistory => ({
     difficulty: item.difficulty,
     class: item.class,
     teacher: item.teacher,
-    CreatedAt:item.createdAt,
+    creatAt:item.creatAt,
 });
 const fetchRawData = async (url: string): Promise<any> => {
     try {

@@ -61,15 +61,15 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
         result.TotalQuestions > 0 ? `${result.TotalQuestions} câu hỏi` : "Không rõ số câu";
 
     const scoreDisplay =
-        result.score >= 0 && result.maxScore > 0
-            ? `${result.score} / ${result.maxScore} điểm (${percentCorrect}%)`
-            : "Điểm số N/A";
+    result.score !== undefined && result.score !== null
+        ? `${result.score} điểm`
+        : "Điểm số N/A";
 
     return (
         <div
             key={result.QuizId}
             className="card p-5 flex items-start gap-4 transition-shadow hover:shadow-lg cursor-pointer"
-             onClick={() => onViewDetail(result.QuizId,result.CreatedAt)} // 🔥 Click cả card → xem chi tiết
+             onClick={() => onViewDetail(result.QuizId,result.creatAt)} // 🔥 Click cả card → xem chi tiết
         >
             <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 mt-1 bg-secondary-100 flex items-center justify-center">
                 <img
@@ -95,24 +95,7 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
                         <BookOpen className="w-4 h-4 mr-1" />
                         <span>{totalQuestionsDisplay}</span>
                     </div>
-                    <div
-                        className={`flex items-center font-medium ${
-                            percentCorrect >= 50 ? "text-green-600" : "text-red-600"
-                        }`}
-                    >
-                        <CheckCircle className="w-4 h-4 mr-1" />
-                        {scoreDisplay}
-                    </div>
-
-                    <div className="flex items-center">
-                        <Clock className="w-4 h-4 mr-1" />
-                        <span>
-                            Thời gian:{" "}
-                            {result.timeSpent > 0
-                                ? `${Math.round(result.timeSpent / 60)} phút`
-                                : "N/A"}
-                        </span>
-                    </div>
+                    
                     <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-1" />
                         <span>Hoàn thành: {formatDateTime(result.CompletedAt)}</span>
@@ -126,7 +109,7 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
                     className="w-40 justify-center mt-2"
                     onClick={(e) => {
                         e.stopPropagation(); // Ngăn click card
-                        onViewDetail(result.QuizId,result.CreatedAt); // 🔥 GỌI ĐÚNG CALLBACK
+                        onViewDetail(result.QuizId,result.creatAt); // 🔥 GỌI ĐÚNG CALLBACK
                     }}
                 >
                     <Eye className="w-4 h-4 mr-1" /> Xem chi tiết

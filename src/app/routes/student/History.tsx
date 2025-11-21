@@ -44,9 +44,10 @@ export default function StudentHistory() {
     return String(title).toLowerCase().includes(s);
   });
 }, [history, searchTerm]);
-  const handleViewDetail = (quizId: number,completedAt: string) => {
-  //navigate(`/report/detail/${studentId}/${quizId}?CreateAt=${completedAt}`);
-  navigate(`/report/detail/${studentId}/${quizId}?CreateAt=2025-11-18T14:40:58.4229637`);
+  const handleViewDetail = (quizId: number,createAt: string) => {
+  const encoded = encodeURIComponent(createAt || "");
+  navigate(`/report/detail/${studentId}/${quizId}?CreateAt=${encoded}`);
+  //navigate(`/report/detail/${studentId}/${quizId}?CreateAt=2025-11-18T14:40:58.4229637`);
 
 };
   return (
@@ -75,13 +76,15 @@ export default function StudentHistory() {
       {!isLoading && !error && filteredResults.length > 0 && (
         <div className="space-y-4">
           {filteredResults.map((result) => {
-  console.log("History result item:", result); // 👈 đặt ở đây
+        console.log("Item nè:", result);
+        console.log("Field keys:", Object.keys(result));
+console.log("result.createAt:", result.creatAt);
 
   return (
     <HistoryResultCard
       key={result.QuizId}
       result={result}
-      onViewDetail={() => handleViewDetail(result.QuizId, result.CompletedAt)}
+      onViewDetail={() => handleViewDetail(result.QuizId, result.creatAt)}
     />
   );
 })}
