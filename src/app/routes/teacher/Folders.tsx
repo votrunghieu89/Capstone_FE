@@ -14,6 +14,7 @@ import {
   Loader2,
   LayoutGrid,
   List,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
@@ -977,6 +978,16 @@ export default function TeacherFolders() {
                     Tạo Quiz
                   </Button>
                 )}
+                {/* NÚT MỚI: Tạo Quiz bằng AI */}
+                {selectedFolder !== null && (
+                  <Button 
+                    onClick={() => navigate("/quiz/create/ai")}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 border-none shadow-lg transition-all"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Tạo Quiz bằng AI
+                  </Button>
+                )}
               </div>
             </div>
 

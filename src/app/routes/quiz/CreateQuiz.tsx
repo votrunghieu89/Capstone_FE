@@ -1,5 +1,6 @@
 //createQuiz.tsx
 import React, { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -84,6 +85,7 @@ interface FolderResponse {
 }
 
 export default function CreateQuiz() {
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -253,6 +255,7 @@ const mapQuestionType = (type: "MultipleChoice" | "TrueFalse"): "MCQ" | "TF" => 
             formData,
             { headers: { "Content-Type": "multipart/form-data" } }
           )) as any;
+          console.log("LOG 4: Attempting to create quiz..." + uploadResponse.imageUrl);
           avatarURL = uploadResponse.imageUrl;
         }
         
@@ -289,6 +292,11 @@ console.log("Payload tạo quiz:", quizData);
       const response = (await apiClient.post("/Quiz/createQuiz", payload)) as any;
 
       if (response.status === 200 || response.status === 201 || response) {
+
+  if (!data.isPrivate) {
+    console.log("LOG 5: Quiz là CÔNG KHAI. Vô hiệu hóa cache publicQuizzes.");
+    queryClient.invalidateQueries({ queryKey: ['publicQuizzes'],exact:false }); 
+  }
         alert("✅ Tạo quiz thành công!");
         navigate("/teacher/folders");
       } else {

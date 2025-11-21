@@ -47,6 +47,7 @@ import CreateQuiz from "../app/routes/quiz/CreateQuiz";
 import EditQuiz from "../app/routes/quiz/EditQuiz";
 import SoloResult from "../app/routes/quiz/SoloResult";
 import QuizDetail from "../app/routes/quiz/QuizDetail";
+import CreateQuizAI from "../app/routes/quiz/CreateQuizAI";
 export const router = createBrowserRouter(
   [
     {
@@ -200,6 +201,16 @@ export const router = createBrowserRouter(
         </RequireAuth>
       ),
     },
+    {
+      path: "/quiz/create/ai", // ⬅️ ROUTE MỚI CHO AI
+      element: (
+        <RequireAuth>
+          <RequireRole roles={["Teacher"]}>
+            <CreateQuizAI />
+          </RequireRole>
+        </RequireAuth>
+      ),
+    },
     {
       path: "/quiz/edit/:quizId",
       element: (
