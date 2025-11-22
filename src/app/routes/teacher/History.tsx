@@ -84,7 +84,12 @@ export default function TeacherHistory() {
                         <TeacherReportCard
                             key={`${report.QuizId}-${report.GroupId}`}
                             report={report}
-                            onViewDetail={() => handleViewDetail(report.QuizId, report.GroupId)}
+                            //onViewDetail={() => handleViewDetail(report.QuizId, report.GroupId)}
+                            onViewDetail={() =>
+                                navigate(
+                                    `/teacher/reports/offline/${report.QuizId}/${report.OfflineReportId}/${report.GroupId}`
+                                )
+                            }
                         />
                     ))}
                 </div>
