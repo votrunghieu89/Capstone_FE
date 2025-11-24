@@ -21,6 +21,7 @@ import TeacherFolders from "../app/routes/teacher/Folders";
 import TeacherHistory from "../app/routes/teacher/History";
 import TeacherClasses from "../app/routes/teacher/Classes";
 import TeacherOfflineReportDetail from "../app/routes/quiz/teacherOfflineReportDetail"
+import TeacherOnlineReportDetail from "../app/routes/quiz/teacherOnlineReportDetail";
 // Student routes
 import StudentLayout from "../app/routes/student/layout";
 import StudentClasses from "../app/routes/student/Classes";
@@ -99,9 +100,14 @@ export const router = createBrowserRouter(
         { path: "history", element: <TeacherHistory /> },
         { path: "classes", element: <TeacherClasses /> },
         {
-      path:"/teacher/reports/offline/:quizId/:qgId/:groupId",
-      element: <TeacherOfflineReportDetail />,
-    },
+          path: "/teacher/reports/online/:quizId/:reportId",
+          element: <TeacherOnlineReportDetail />,
+        },
+        {
+          path:"/teacher/reports/offline/:quizId/:qgId/:groupId",
+          element: <TeacherOfflineReportDetail />,
+        },
+    
       ],
     },
     {

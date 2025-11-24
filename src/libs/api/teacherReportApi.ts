@@ -13,10 +13,10 @@ interface QuizReportItem {
     totalQuestions: number;
     reportReports: QuizDetailReport[];
     status: string;
-    endTime:string | null;
+    endTime: string | null;
     totalParticipants: number;
     reportName: string;
-    offlineReportId:number;
+    offlineReportId: number;
 }
 
 interface GroupReport {
@@ -35,12 +35,12 @@ export interface TeacherQuizReportFlat {
     TotalQuestions: number;
     TotalAttempts: number;
     Type: QuizReportType;
-    Status:string;
-    EndTime: string| null;
-    reportName:string;
+    Status: string;
+    EndTime: string | null;
+    reportName: string;
 }
 
-// Helper: Flatten data
+// 🟦 FLATTEN OFFLINE REPORTS (giữ nguyên)
 const flattenReports = (rawData: any[], type: QuizReportType): TeacherQuizReportFlat[] => {
     if (!Array.isArray(rawData)) return [];
 
@@ -52,15 +52,15 @@ const flattenReports = (rawData: any[], type: QuizReportType): TeacherQuizReport
                 flatReports.push({
                     QuizId: quiz.quizzId,
                     OfflineReportId: quiz.offlineReportId,
-                    Title: quiz.quizTitle,
+                    Title: quiz.reportName,
                     GroupName: group.groupName,
                     GroupId: group.groupId,
                     TotalQuestions: quiz.totalQuestions,
                     TotalAttempts: quiz.totalParticipants ?? 0,
                     Type: type,
-                    Status:quiz.status ?? "Unknown",
-                    EndTime:quiz.endTime ?? null,
-                    reportName:quiz.reportName ?? "",
+                    Status: quiz.status ?? "Unknown",
+                    EndTime: quiz.endTime ?? null,
+                    reportName: quiz.reportName ?? "",
                 });
             });
         }
@@ -69,30 +69,56 @@ const flattenReports = (rawData: any[], type: QuizReportType): TeacherQuizReport
     return flatReports;
 };
 
-// Main fetch function
+// 🟩 MAPPER ONLINE REPORTS (thêm mới)
+const mapOnlineReports = (raw: any[]): TeacherQuizReportFlat[] => {
+    if (!Array.isArray(raw)) return [];
+
+    return raw.map(item => ({
+        QuizId: item.quizId,
+        OfflineReportId: item.onlineReportId, // dùng ID này khi xem detail
+        Title: item.reportName ?? "Online Quiz",
+        GroupName: "Online Quiz",
+        GroupId: 0,
+        TotalQuestions: 0,
+        TotalAttempts: item.totalParticipants ?? 0,
+        Type: "online",
+        Status: "Completed",
+        EndTime: item.createdAt ?? null,
+        reportName: item.reportName
+    }));
+};
+
+// 🟧 MAIN FETCH
 const fetchTeacherReports = async (
     teacherId: number,
     type: QuizReportType
 ): Promise<TeacherQuizReportFlat[]> => {
     if (teacherId === 0) return [];
 
+    // ALL → gộp online + offline
     if (type === "all") {
-        try {
-            const [onlineResponse, offlineResponse] = await Promise.all([
-                apiClient.get(`/TeacherReport/online/quiz-reports/${teacherId}`),
-                apiClient.get(`/TeacherReport/offline/quiz-reports/${teacherId}`),
-            ]);
+        const [onlineResponse, offlineResponse] = await Promise.all([
+            apiClient.get(`/TeacherReport/online/quiz-reports/${teacherId}`),
+            apiClient.get(`/TeacherReport/offline/quiz-reports/${teacherId}`),
+        ]);
 
-            const onlineReports = flattenReports((onlineResponse as any).data || onlineResponse, "online");
-            const offlineReports = flattenReports((offlineResponse as any).data || offlineResponse, "offline");
+        const onlineRaw =  (onlineResponse as any).data;
+        const offlineRaw =  (offlineResponse as any).data;
 
-            return [...onlineReports, ...offlineReports];
-        } catch (error) {
-            console.error("Error fetching combined reports:", error);
-            throw error;
-        }
+        const online = mapOnlineReports(onlineRaw);
+        const offline = flattenReports(offlineRaw, "offline");
+
+        return [...online, ...offline];
     }
 
+    // ONLINE —> dùng mapper riêng
+    if (type === "online") {
+        const res = await apiClient.get(`/TeacherReport/online/quiz-reports/${teacherId}`);
+        const rawData = (res as any).data || res;
+        return mapOnlineReports(rawData);
+    }
+
+    // OFFLINE —> dùng flatten
     const endpoint = `/TeacherReport/${type}/quiz-reports/${teacherId}`;
     const response = await apiClient.get(endpoint) as any;
     const rawData = response.data || response;
@@ -108,5 +134,3 @@ export const useGetTeacherReports = (teacherId: number, type: QuizReportType) =>
         enabled: teacherId > 0,
     });
 };
-
-

@@ -12,7 +12,7 @@ import { storage } from "../../../libs/storage";
 
 export default function StudentHistory() {
   const navigate = useNavigate();
-  const [filterType, setFilterType] = useState<"all" | "public" | "private">("all");
+  const [filterType, setFilterType] = useState<"all" | "public" | "private">("public");
   const [searchTerm, setSearchTerm] = useState("");
   const location = useLocation();
   const user = storage.getUser();
@@ -54,7 +54,7 @@ export default function StudentHistory() {
     <div className="w-full">
         <div className="mb-8 flex justify-between items-center"> <div> <h1 className="text-3xl font-bold text-secondary-900 mb-2">📖 Lịch sử Quiz</h1> <p className="text-secondary-600">Xem lại các quiz đã hoàn thành</p> </div> </div>
       <div className="mb-6 flex space-x-4">
-        <Button variant={filterType === "all" ? "primary" : "outline"} onClick={() => setFilterType("all")}>Tất cả</Button>
+        
         <Button variant={filterType === "public" ? "primary" : "outline"} onClick={() => setFilterType("public")}>Quiz Homepage</Button>
         <Button variant={filterType === "private" ? "primary" : "outline"} onClick={() => setFilterType("private")}>Quiz Nhóm lớp</Button>
       </div>

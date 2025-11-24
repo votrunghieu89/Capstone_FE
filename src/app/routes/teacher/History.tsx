@@ -13,7 +13,7 @@ import { useGetTeacherReports, TeacherQuizReportFlat } from "../../../libs/api/t
 export default function TeacherHistory() {
     const navigate = useNavigate();
     // Giữ nguyên layout lọc
-    const [filterType, setFilterType] = useState<"all" | "online" | "offline">("all");
+    const [filterType, setFilterType] = useState<"all" | "online" | "offline">("online");
     const [searchTerm, setSearchTerm] = useState("");
 
     const user = storage.getUser();
@@ -55,7 +55,7 @@ export default function TeacherHistory() {
             </div>
 
             <div className="mb-6 flex space-x-4">
-                <Button variant={filterType === "all" ? "primary" : "outline"} onClick={() => setFilterType("all")}>Tất cả</Button>
+                
                 <Button variant={filterType === "online" ? "primary" : "outline"} onClick={() => setFilterType("online")}>Quiz Online</Button>
                 <Button variant={filterType === "offline" ? "primary" : "outline"} onClick={() => setFilterType("offline")}>Quiz Offline</Button>
             </div>
@@ -85,11 +85,24 @@ export default function TeacherHistory() {
                             key={`${report.QuizId}-${report.GroupId}`}
                             report={report}
                             //onViewDetail={() => handleViewDetail(report.QuizId, report.GroupId)}
-                            onViewDetail={() =>
+                            /*onViewDetail={() =>
                                 navigate(
                                     `/teacher/reports/offline/${report.QuizId}/${report.OfflineReportId}/${report.GroupId}`
                                 )
+                            }*/
+                           onViewDetail={() => {
+                            if (report.Type === "online") {
+                                // navigate đến trang xem chi tiết online
+                                navigate(
+                                    `/teacher/reports/online/${report.QuizId}/${report.OfflineReportId}`
+                                );
+                            } else {
+                                // navigate đến trang xem chi tiết offline
+                                navigate(
+                                    `/teacher/reports/offline/${report.QuizId}/${report.OfflineReportId}/${report.GroupId}`
+                                );
                             }
+                        }}
                         />
                     ))}
                 </div>

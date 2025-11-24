@@ -52,6 +52,7 @@ const fetchPublicQuizzes = async (page: number, pageSize: number): Promise<Publi
  * @param page The current page number.
  * @param pageSize The number of quizzes per page.
  */
+
 export const useGetPublicQuizzes = (
   page: number = 1,
   pageSize: number = 6
@@ -85,4 +86,19 @@ export const useFilterByTopic = (topic: number | null, page: number, pageSize: n
     },
     enabled: topic !== null,
   });
+};
+export const checkQuizExpired = async (quizId: number, qgId: number) => {
+  const response = await apiClient.post("/TeacherReport/check-expired", {
+    quizid: quizId,
+    qgId: qgId
+  });
+  return response;
+};
+
+export const endQuizNow = async (quizId: number, groupId: number) => {
+  const response = await apiClient.post("/TeacherReport/end-now", {
+    quizid: quizId,
+    groupid: groupId
+  });
+  return response;
 };

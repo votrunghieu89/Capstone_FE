@@ -6,24 +6,20 @@ import {
     CardHeader,
     CardTitle,
 } from "../../../components/common/Card";
-import { Button } from "../../../components/common/Button";
+    import { Button } from "../../../components/common/Button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../../components/common/Tabs";
-import { ArrowLeft, Trophy, Calendar, Clock, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { apiClient } from "../../../libs/apiClient";
 
-export default function TeacherOfflineReportDetail() {
-    const { quizId, qgId, groupId } = useParams<{
+export default function TeacherOnlineReportDetail() {
+    const { quizId, reportId } = useParams<{
         quizId: string;
-        qgId: string;
-        groupId: string;
+        reportId: string;
     }>();
 
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState("summary");
 
-    // ============================
-    // STATE
-    // ============================
     const [summary, setSummary] = useState<any>(null);
     const [students, setStudents] = useState<any[]>([]);
     const [questions, setQuestions] = useState<any[]>([]);
@@ -31,67 +27,69 @@ export default function TeacherOfflineReportDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // ============================
-    // LOAD ALL 3 API
-    // ============================
     useEffect(() => {
         const loadData = async () => {
             try {
-                if (!quizId || !qgId || !groupId) return;
+                if (!quizId || !reportId) return;
 
-                // ✔ 1) SUMMARY
+                // ===============================
+                // 1) SUMMARY ONLINE
+                // ===============================
                 const summaryRes: any = await apiClient.get(
-                    `/TeacherReport/offline/detail-report?OfflineReportId=${qgId}&QuizId=${quizId}`
+                    `/TeacherReport/online/detail-report?QuizId=${quizId}&OnlineReportId=${reportId}`
                 );
 
-                // ✔ 2) STUDENTS
+                // ===============================
+                // 2) STUDENTS ONLINE
+                // ===============================
                 const studentRes: any = await apiClient.get(
-                    `/TeacherReport/offline/student-report?QuizId=${quizId}&QGId=${qgId}&GroupId=${groupId}`
+                    `/TeacherReport/online/student-report?QuizId=${quizId}&OnlineReportId=${reportId}`
                 );
 
-                // ✔ 3) QUESTIONS
+                // ===============================
+                // 3) QUESTIONS ONLINE
+                // ===============================
                 const questionRes: any = await apiClient.get(
-                    `/TeacherReport/offline/question-report?QuizId=${quizId}&QGId=${qgId}&GroupId=${groupId}`
+                    `/TeacherReport/online/question-report?QuizId=${quizId}&OnlineReportId=${reportId}`
                 );
 
-                // ============================
+                // ===============================
                 // MAP SUMMARY
-                // ============================
+                // ===============================
                 setSummary({
                     quizTitle: summaryRes.quizTitle,
-                    totalQuestions: summaryRes.totalQuestions,
-                    totalStudents: summaryRes.totalParticipants,
+                    totalQuestions: summaryRes.totalQuestion,
+                    totalStudents: summaryRes.totalStudent,
                     highestScore: summaryRes.highestScore,
                     lowestScore: summaryRes.lowestScore,
                     avgScore: summaryRes.averageScore,
-                    startDate: summaryRes.startDate,
-                    completedAt: summaryRes.endDate,
+                    startDate: summaryRes.createAt,
+                   
                 });
 
-                // ============================
-                // MAP STUDENTS
-                // ============================
+                // ===============================
+                // MAP STUDENTS  (Online KHÔNG có số lần làm)
+                // ===============================
                 setStudents(
                     studentRes.map((s: any) => ({
                         studentId: s.studentId,
-                        fullName: s.fullname,
-                        rank:s.rank,
-                        totalQuestions: s.totalQuestions,
-                        correct: s.numberOfCorrectAnswers,
-                        wrong: s.numberOfWrongAnswers,
-                        finalScore: s.finalScore,
+                        fullName: s.studentName,
+                        correct: s.correctCount,
+                        wrong: s.wrongCount,
+                        totalQuestions: s.totalQuestion,
+                        finalScore: s.score,
                         completedAt: s.completedAt,
-                        count:s.countAttempts,
+                        rank: s.rank,
                     }))
                 );
 
-                // ============================
+                // ===============================
                 // MAP QUESTIONS
-                // ============================
+                // ===============================
                 setQuestions(
                     questionRes.map((q: any) => ({
-                        id: q.questionId,
-                        questionText: q.questionContent,
+                        questionId: q.questionId,
+                        questionContent: q.questionContent,
                         totalAnswers: q.totalAnswers,
                         correctCount: q.correctCount,
                         wrongCount: q.wrongCount,
@@ -107,16 +105,13 @@ export default function TeacherOfflineReportDetail() {
         };
 
         loadData();
-    }, [quizId, qgId, groupId]);
+    }, [quizId, reportId]);
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "—";
         return new Date(dateStr).toLocaleString("vi-VN");
     };
 
-    // ============================
-    // RENDER
-    // ============================
     if (loading)
         return (
             <div className="min-h-screen flex items-center justify-center text-gray-600">
@@ -149,7 +144,7 @@ export default function TeacherOfflineReportDetail() {
                 </Button>
 
                 <h1 className="text-3xl font-bold">{summary.quizTitle}</h1>
-                <p className="text-gray-600">Báo cáo chi tiết (OFFLINE)</p>
+                <p className="text-gray-600">Báo cáo chi tiết (ONLINE)</p>
 
                 {/* ============================ */}
                 {/* TABS */}
@@ -161,9 +156,7 @@ export default function TeacherOfflineReportDetail() {
                         <TabsTrigger value="questions">Questions</TabsTrigger>
                     </TabsList>
 
-                    {/* ============================ */}
                     {/* SUMMARY TAB */}
-                    {/* ============================ */}
                     <TabsContent value="summary" className="mt-6">
                         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 
@@ -207,7 +200,7 @@ export default function TeacherOfflineReportDetail() {
                                 <CardContent>
                                     <div className="flex gap-6">
                                         <div>Bắt đầu: <strong>{formatDate(summary.startDate)}</strong></div>
-                                        <div>Kết thúc: <strong>{formatDate(summary.completedAt)}</strong></div>
+                                        
                                     </div>
                                 </CardContent>
                             </Card>
@@ -215,9 +208,7 @@ export default function TeacherOfflineReportDetail() {
                         </div>
                     </TabsContent>
 
-                    {/* ============================ */}
                     {/* STUDENTS TAB */}
-                    {/* ============================ */}
                     <TabsContent value="students" className="mt-6">
                         <h2 className="text-xl font-bold mb-4">Danh sách học sinh</h2>
 
@@ -229,11 +220,11 @@ export default function TeacherOfflineReportDetail() {
                                             <th className="p-3 border">#</th>
                                             <th className="p-3 border text-left">Họ tên</th>
                                             <th className="p-3 border">Thứ hạng</th>
-                                            <th className="p-3 border ">Số câu trả lời đúng</th>
-                                            <th className="p-3 border ">Số câu trả lời sai</th>
-                                            <th className="p-3 border">Tổng số câu hỏi</th>
+                                            <th className="p-3 border">Đúng</th>
+                                            <th className="p-3 border">Sai</th>
+                                            <th className="p-3 border">Tổng câu hỏi</th>
                                             <th className="p-3 border">Điểm số</th>
-                                            <th className="p-3 border">Số lần làm</th>
+                                            {/* KHÔNG có cột "số lần làm" */}
                                         </tr>
                                     </thead>
 
@@ -243,11 +234,10 @@ export default function TeacherOfflineReportDetail() {
                                                 <td className="p-3 border">{i + 1}</td>
                                                 <td className="p-3 border text-left">{s.fullName}</td>
                                                 <td className="p-3 border font-semibold">{s.rank}</td>
-                                                <td className="p-3 border ">{s.correct}</td>
-                                                <td className="p-3 border ">{s.wrong}</td>
+                                                <td className="p-3 border">{s.correct}</td>
+                                                <td className="p-3 border">{s.wrong}</td>
                                                 <td className="p-3 border">{s.totalQuestions}</td>
                                                 <td className="p-3 border font-semibold">{s.finalScore}</td>
-                                                <td className="p-3 border">{s.count}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -256,10 +246,7 @@ export default function TeacherOfflineReportDetail() {
                         </Card>
                     </TabsContent>
 
-
-                    {/* ============================ */}
                     {/* QUESTIONS TAB */}
-                    {/* ============================ */}
                     <TabsContent value="questions" className="mt-6">
                         <h2 className="text-xl font-bold mb-4">Chi tiết câu hỏi</h2>
 
@@ -270,10 +257,10 @@ export default function TeacherOfflineReportDetail() {
                                         <tr>
                                             <th className="p-3 border">#</th>
                                             <th className="p-3 border text-left">Câu hỏi</th>
-                                            <th className="p-3 border">Tổng số lượt trả lời</th>
-                                            <th className="p-3 border ">Số câu trả lời đúng</th>
-                                            <th className="p-3 border ">Số câu trả lời sai</th>
-                                            <th className="p-3 border">Tỉ lệ trả lời đúng</th>
+                                            <th className="p-3 border">Tổng lượt</th>
+                                            <th className="p-3 border">Đúng</th>
+                                            <th className="p-3 border">Sai</th>
+                                            <th className="p-3 border">Tỉ lệ đúng</th>
                                         </tr>
                                     </thead>
 
@@ -281,13 +268,11 @@ export default function TeacherOfflineReportDetail() {
                                         {questions.map((q, index) => (
                                             <tr key={q.questionId} className="text-center">
                                                 <td className="p-3 border">{index + 1}</td>
-                                                <td className="p-3 border text-left">{q.questionText}</td>
+                                                <td className="p-3 border text-left">{q.questionContent}</td>
                                                 <td className="p-3 border">{q.totalAnswers}</td>
-                                                <td className="p-3 border ">{q.correctCount}</td>
-                                                <td className="p-3 border ">{q.wrongCount}</td>
-                                                <td className="p-3 border font-semibold">
-                                                    {q.percentageCorrect}%
-                                                </td>
+                                                <td className="p-3 border">{q.correctCount}</td>
+                                                <td className="p-3 border">{q.wrongCount}</td>
+                                                <td className="p-3 border font-semibold">{q.percentageCorrect}%</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -295,8 +280,6 @@ export default function TeacherOfflineReportDetail() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-
-
                 </Tabs>
             </div>
         </div>

@@ -34,7 +34,7 @@ export default function Landing() {
   const topicId = topicMapping[activeCategory];
 
   // API: Lấy toàn bộ quiz khi Tất cả
-  const useAllQuiz = useGetPublicQuizzes(1, 100);
+  const useAllQuiz = useGetPublicQuizzes(currentPage+1, 6);
 
   // API: Lọc theo topic
   const useFiltered = useFilterByTopic(topicId ?? null, currentPage, pageSize);

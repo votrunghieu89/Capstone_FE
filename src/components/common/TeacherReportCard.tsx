@@ -1,8 +1,10 @@
-import React from 'react';
-import { BookOpen, Users, BarChart2, Calendar } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookOpen, Users, BarChart2 } from 'lucide-react';
 import { Button } from './Button';
-import { TeacherQuizReportFlat } from '../../libs/api/teacherReportApi'; 
+import { TeacherQuizReportFlat} from '../../libs/api/teacherReportApi';
+       
 
+import { checkQuizExpired, endQuizNow } from '../../libs/api/quizApi';
 interface TeacherReportCardProps {
     report: TeacherQuizReportFlat;
     onViewDetail: () => void;
@@ -10,12 +12,46 @@ interface TeacherReportCardProps {
 
 export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, onViewDetail }) => {
     
-    // Giả định Điểm TB là N/A vì dữ liệu API hiện tại không có, bạn cần bổ sung sau
-    const averageScore = report.TotalAttempts > 0 ? 'N/A' : 'N/A'; 
-    const formatDate = (dateStr?: string) => {
+    const [status, setStatus] = useState<string>(report.Status ?? "Pending");
+    const [expiredTime, setExpiredTime] = useState<string | null>(report.EndTime);
+    const [loading, setLoading] = useState(false);
+
+    const formatDate = (dateStr?: string | null) => {
         if (!dateStr) return "—";
         return new Date(dateStr).toLocaleString("vi-VN");
     };
+
+    useEffect(() => {
+        async function checkStatus() {
+            try {
+                const res = await checkQuizExpired(report.QuizId, report.GroupId);
+
+                if ((res as any).data?.isExpired === true) {
+                    setStatus("Completed");
+                }
+            } catch (err) {
+                console.error("Check expired error:", err);
+            }
+        }
+
+        checkStatus();
+    }, [report.QuizId, report.GroupId]);
+
+    const handleEndNow = async () => {
+        try {
+            setLoading(true);
+
+            await endQuizNow(report.QuizId, report.GroupId);
+
+            setStatus("Completed");
+            setExpiredTime(new Date().toISOString());
+        } catch (err) {
+            console.error("End now error:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const getStatusColor = (status: string) => {
         switch (status?.toLowerCase()) {
             case "pending":
@@ -28,6 +64,7 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
                 return "bg-gray-100 text-gray-600 border-gray-300";
         }
     };
+
     return (
         <div className="p-4 border border-secondary-200 rounded-xl bg-white shadow-md flex items-center justify-between hover:border-primary-400 transition-all">
             <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -36,31 +73,28 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
                     <h3 className="font-bold text-lg text-secondary-900 truncate">
                         {report.Title}
                     </h3>
-                    {/* ⭐ STATUS BADGE */}
-                        <span
-                            className={`px-2 py-0.5 text-xs font-semibold rounded-md border ${getStatusColor(
-                                report.Status ?? ""
-                            )}`}
-                        >
-                            {report.Status}
-                        </span>
-                    <p className="text-sm text-secondary-600 flex items-center space-x-2">
-                       
-                        <span className="font-extrabold text-xs"></span>
+
+                    {/* STATUS BADGE */}
+                    <span
+                        className={`px-2 py-0.5 text-xs font-semibold rounded-md border ${getStatusColor(
+                            status
+                        )}`}
+                    >
+                        {status}
+                    </span>
+
+                    <p className="text-sm text-secondary-600 flex items-center space-x-2 mt-1">
                         <Users className="w-4 h-4" />
-                        <span>{report.GroupName}</span> 
+                        <span>{report.GroupName}</span>
                     </p>
-                    <p className="text-sm text-secondary-600 flex items-center space-x-2">
-                       
-                        <span className="font-extrabold text-xs"></span>
-                        
-                        <span>{report.reportName}</span> 
-                    </p>
+
+                    
                 </div>
             </div>
 
             <div className="flex items-center space-x-6 flex-shrink-0">
-                {/* Số lần làm bài */}
+
+                {/* Lượt làm bài */}
                 <div className="text-center">
                     <p className="text-xs text-secondary-500">Lượt làm bài</p>
                     <p className="font-bold text-xl text-primary-600">
@@ -68,15 +102,27 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
                     </p>
                 </div>
 
-                {/* ⭐ Hết hạn */}
+                {/* Hết hạn */}
                 <div className="text-center">
                     <p className="text-xs text-secondary-500">Hết hạn</p>
                     <p className="font-bold text-sm text-secondary-700 whitespace-nowrap">
-                        {formatDate(report.EndTime ?? undefined)}
+                        {formatDate(expiredTime ?? undefined)}
                     </p>
+
+                    {/* ⭐ NÚT HẾT HẠN NGAY */}
+                    {status === "Pending" && (
+                        <Button 
+                            size="sm" 
+                            variant="destructive"
+                            className="mt-1"
+                            onClick={handleEndNow}
+                            disabled={loading}
+                        >
+                            {loading ? "Đang xử lý..." : "Hết hạn ngay"}
+                        </Button>
+                    )}
                 </div>
 
-                {/* Nút Chi tiết */}
                 <Button size="sm" onClick={onViewDetail}>
                     <BarChart2 className="w-4 h-4 mr-2" />
                     Xem chi tiết
