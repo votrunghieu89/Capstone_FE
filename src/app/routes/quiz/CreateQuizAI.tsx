@@ -429,14 +429,26 @@ export default function CreateQuizAI() {
                                     <textarea className="input min-h-[100px] resize-none" placeholder="Nhập mô tả" {...register("description")}/>
                                 </div>
                                 
-                                {/* IsPrivate */}
-                                <div>
-                                    <label className="text-sm font-medium text-secondary-700 mb-2 block">Quiz riêng tư</label>
-                                    <select className="input" {...register("isPrivate", { setValueAs: v => v === 'true' })}>
-                                        <option value="true">true</option>
-                                        <option value="false">false</option>
-                                    </select>
-                                </div>
+                                {/* Quiz riêng tư */}
+                                    <div className="flex items-center space-x-2 mt-4">
+                                        <input
+                                            type="checkbox"
+                                            id="private-quiz"
+                                            className="w-4 h-4 cursor-pointer"
+                                            {...register("isPrivate")}
+                                            onChange={(e) => {
+                                                // react-hook-form cần nhận boolean
+                                                setValue("isPrivate", e.target.checked);
+                                            }}
+                                        />
+
+                                        <label
+                                            htmlFor="private-quiz"
+                                            className="text-sm text-secondary-700 cursor-pointer"
+                                        >
+                                            Quiz riêng tư (chỉ học sinh trong lớp mới thấy)
+                                        </label>
+                                    </div>
                                 
                                 {/* ⬅️ THÊM: AvatarURL Upload (Thumbnail) */}
                                 <div>
@@ -497,17 +509,29 @@ export default function CreateQuizAI() {
                                             onChange={handleFileChange}
                                         />
                                         <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                            <svg className="w-8 h-8 mb-3 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                                            <p className="mb-2 text-sm text-secondary-500">Choose File</p>
-                                            <p className="text-xs text-secondary-600">
-                                                {fileToUpload ? fileToUpload.name : "No file chosen"}
-                                            </p>
+                                            {/* CHỈ HIỆN ICON + CHOOSE FILE KHI CHƯA CÓ FILE */}
+                                                {!fileToUpload && (
+                                                    <>
+                                                        <svg className="w-8 h-8 mb-3 text-secondary-500" fill="none" stroke="currentColor"
+                                                            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                                                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                                                        </svg>
+
+                                                        <p className="mb-2 text-sm text-secondary-500">Choose File</p>
+                                                    </>
+                                                )}
+
+                                                {/* HIỆN TÊN FILE TO, ĐẬM KHI ĐÃ CHỌN */}
+                                                {fileToUpload && (
+                                                    <p className="text-base font-semibold text-secondary-800 text-center px-4">
+                                                        {fileToUpload.name}
+                                                    </p>
+                                                )}
+
                                         </div>
                                     </div>
-                                    <div className="flex items-center mt-2">
-                                        <input type="checkbox" className="rounded border-secondary-300 text-primary-600 focus:ring-primary-500" />
-                                        <span className="ml-2 text-sm text-secondary-600">Send empty value</span>
-                                    </div>
+                                    
                                 </div>
                                 
                                 {/* Topic and Folder */}
@@ -546,7 +570,7 @@ export default function CreateQuizAI() {
                                     type="button" 
                                     onClick={handleGenerateQuiz} 
                                     loading={isAIGenerating}
-                                    disabled={isAIGenerating || isLoading || !watch('topicId') || !watch('title')} // Thêm validate Title
+                                    disabled={isAIGenerating || isLoading || !watch('topicId') || !watch('title')|| !watch("folderId") || !fileToUpload} // Thêm validate Title
                                     className="bg-purple-600 hover:bg-purple-700 text-white"
                                 >
                                     {isAIGenerating ? (

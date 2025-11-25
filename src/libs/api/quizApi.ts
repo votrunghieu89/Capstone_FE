@@ -12,6 +12,10 @@ export interface PublicQuizItem {
     totalParticipants: number; 
     plays: number; 
 }
+export interface TopicResponse {
+  topicId: number;
+  topicName: string;
+}
 const BASE_URL = "http://localhost:5119";
 
 /**
@@ -85,6 +89,18 @@ export const useFilterByTopic = (topic: number | null, page: number, pageSize: n
       return res;
     },
     enabled: topic !== null,
+  });
+};
+export const getAllTopic = async () => {
+  const res = await apiClient.get("/Topic/getAllTopic");
+  return (res as TopicResponse[]);
+};
+
+// Hook useQuery
+export const useGetAllTopic = () => {
+  return useQuery({
+    queryKey: ["get-all-topic"],
+    queryFn: getAllTopic,
   });
 };
 export const checkQuizExpired = async (quizId: number, qgId: number) => {

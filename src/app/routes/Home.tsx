@@ -13,52 +13,63 @@ import { Footer } from "../../components/layout/Footer";
 import { storage } from "../../libs/storage";
 import { useMemo, useState } from "react";
 import { Spinner } from "../../components/common/Spinner";
-import { useGetPublicQuizzes, useFilterByTopic } from "../../libs/api/quizApi";
+import {
+  useGetPublicQuizzes,
+  useFilterByTopic,
+  useGetAllTopic,
+} from "../../libs/api/quizApi";
 
 export default function Landing() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
+  const [showFilter, setShowFilter] = useState(false);
+  // Lấy danh sách topic từ API
+  const { data: topics } = useGetAllTopic() ;
 
-  const topicMapping: Record<string, number | null> = {
-    "Tất cả": null,
-    "Toán học": 2,
-    "Khoa học": 5,
-    "Lịch sử": 3,
-    "Văn học": 4,
-    "Tiếng Anh": 1,
-  };
+  // Danh sách category động từ API + "Tất cả"
+  const categories = [
+  { topicId: null, topicName: "Tất cả" },
+  ...(topics?.slice(0, 5).map((t) => ({
+    topicId: t.topicId,
+    topicName: t.topicName,
+  })) ?? []),
+];
 
-  const topicId = topicMapping[activeCategory];
+  const [activeCategory, setActiveCategory] = useState<{
+    topicId: number | null;
+    topicName: string;
+  }>({
+    topicId: null,
+    topicName: "Tất cả",
+  });
 
-  // API: Lấy toàn bộ quiz khi Tất cả
-  const useAllQuiz = useGetPublicQuizzes(currentPage+1, 6);
+  const topicId = activeCategory.topicId;
 
-  // API: Lọc theo topic
+  // API: lấy tất cả quiz
+  const useAllQuiz = useGetPublicQuizzes(1, 9999);
+
+  // API: filter theo topic
   const useFiltered = useFilterByTopic(topicId ?? null, currentPage, pageSize);
 
-  // Trạng thái loading / error / data
-  const isLoading = topicId === null ? useAllQuiz.isLoading : useFiltered.isLoading;
-  const isError   = topicId === null ? useAllQuiz.isError   : useFiltered.isError;
+  // Loading / Error
+  const isLoading =
+    topicId === null ? useAllQuiz.isLoading : useFiltered.isLoading;
 
-  const quizzes = topicId === null ? (useAllQuiz.data || []) : (useFiltered.data || []) as any[];
+  const isError = topicId === null ? useAllQuiz.isError : useFiltered.isError;
 
-  const categories = [
-    "Tất cả",
-    "Toán học",
-    "Khoa học",
-    "Lịch sử",
-    "Văn học",
-    "Tiếng Anh",
-  ];
+  // Data quiz sau filter topic (BE)
+  const quizzes =
+    topicId === null
+      ? useAllQuiz.data || []
+      : ((useFiltered.data || []) as any[]);
 
-  // Lọc tìm kiếm FE (không động vào topic)
+  // Tìm kiếm FE
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     return quizzes.filter(
-      (q) =>
+      (q: any) =>
         !s ||
         q.title.toLowerCase().includes(s) ||
         q.description?.toLowerCase().includes(s)
@@ -69,13 +80,17 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-white relative overflow-x-hidden flex flex-col">
-      {user ? <TopNavbar /> : (
+      {user ? (
+        <TopNavbar />
+      ) : (
         <header className="relative z-10 w-full backdrop-blur-lg bg-white/70 border-b border-white/30">
           <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <Logo size="md" />
             <div className="flex items-center gap-2">
               <Link to="/auth/login">
-                <Button variant="outline" size="sm">Đăng nhập</Button>
+                <Button variant="outline" size="sm">
+                  Đăng nhập
+                </Button>
               </Link>
               <Link to="/auth/register">
                 <Button size="sm">Đăng ký</Button>
@@ -103,6 +118,7 @@ export default function Landing() {
                 nghìn bài quiz thú vị và nâng cao kiến thức của bạn!
               </p>
             </div>
+
             <div className="mt-6 max-w-3xl mx-auto flex items-center gap-3">
               <div className="input flex items-center flex-1 bg-white/95">
                 <Search className="w-4 h-4 mr-2" />
@@ -116,12 +132,18 @@ export default function Landing() {
               <Button
                 className="whitespace-nowrap"
                 onClick={() =>
-                  document.getElementById("landing-quizzes")?.scrollIntoView({ behavior: "smooth" })
+                  document
+                    .getElementById("landing-quizzes")
+                    ?.scrollIntoView({ behavior: "smooth" })
                 }
               >
                 <Play className="w-4 h-4 mr-2" /> Khám phá
               </Button>
-              <Button variant="outline" className="whitespace-nowrap" onClick={() => navigate("/play/join")}>
+              <Button
+                variant="outline"
+                className="whitespace-nowrap"
+                onClick={() => navigate("/play/join")}
+              >
                 Tham gia bằng mã PIN
               </Button>
             </div>
@@ -133,31 +155,89 @@ export default function Landing() {
           <div className="flex items-center gap-2 overflow-x-auto">
             {categories.map((c) => (
               <button
-                key={c}
+                key={c.topicId ?? "all"}
                 onClick={() => {
                   setActiveCategory(c);
-                  setCurrentPage(1); // reset trang khi đổi topic
+                  setCurrentPage(1);
                 }}
                 className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeCategory === c
+                  activeCategory.topicId === c.topicId
                     ? "bg-primary-600 text-white shadow-md"
                     : "bg-white hover:bg-primary-50 text-secondary-700 border border-secondary-200"
                 }`}
               >
-                {c}
+                {c.topicName}
               </button>
             ))}
           </div>
-          <button className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all">
+
+          <button
+            onClick={() => setShowFilter(!showFilter)}
+            className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all relative"
+          >
             <SlidersHorizontal className="w-4 h-4 mr-2" /> Lọc
           </button>
+          {/* MENU LỌC  */}
+            {showFilter && (
+  <div className="absolute right-0 top-16 z-50 w-72 animate-fadeIn">
+    <div className="bg-white/95 backdrop-blur-md border border-secondary-200 shadow-xl rounded-2xl p-4">
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-semibold text-secondary-700">
+          Bộ lọc môn học
+        </p>
+        <button
+          onClick={() => setShowFilter(false)}
+          className="text-secondary-500 hover:text-secondary-700 transition"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Danh sách topic */}
+      <div className="max-h-64 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-thumb-secondary-300 scrollbar-thumb-rounded">
+        {topics?.map((t) => {
+          const isActive = activeCategory.topicId === t.topicId;
+          return (
+            <button
+              key={t.topicId}
+              onClick={() => {
+                setActiveCategory(t);
+                setCurrentPage(1);
+                setShowFilter(false);
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-all
+                ${
+                  isActive
+                    ? "bg-primary-100 text-primary-700 font-medium shadow-sm"
+                    : "hover:bg-secondary-100 text-secondary-700"
+                }
+              `}
+            >
+              {t.topicName}
+
+              {isActive && (
+                <span className="text-primary-700 text-xs font-semibold">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+)}
         </section>
 
         {/* DATA RENDER */}
         {isLoading ? (
           <div className="text-center py-20">
             <Spinner size="lg" className="text-primary-600" />
-            <p className="mt-3 text-secondary-600">Đang tải các Quiz mới nhất...</p>
+            <p className="mt-3 text-secondary-600">
+              Đang tải các Quiz mới nhất...
+            </p>
           </div>
         ) : isError ? (
           <div className="text-center py-20 text-red-600 border border-red-200 p-4 rounded-xl">
@@ -169,10 +249,13 @@ export default function Landing() {
               Tìm thấy {filtered.length} quiz
             </p>
 
-            {/* Phân trang FE (API đã filter theo topic) */}
+            {/* Phân trang FE */}
             {(() => {
               const startIndex = (currentPage - 1) * pageSize;
-              const paginated = filtered.slice(startIndex, startIndex + pageSize);
+              const paginated = filtered.slice(
+                startIndex,
+                startIndex + pageSize
+              );
               const totalPages = Math.ceil(filtered.length / pageSize);
 
               return (
@@ -186,10 +269,17 @@ export default function Landing() {
                         key={q.quizId}
                         className="rounded-2xl overflow-hidden border border-primary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
                       >
-                        <Link to={`/quiz/preview/${q.quizId}`} className="block">
+                        <Link
+                          to={`/quiz/preview/${q.quizId}`}
+                          className="block"
+                        >
                           <div className="h-48 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 flex items-center justify-center">
                             {q.avatarURL ? (
-                              <img src={q.avatarURL} alt={q.title} className="w-full h-full object-cover" />
+                              <img
+                                src={q.avatarURL}
+                                alt={q.title}
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
                               <BookOpen className="w-20 h-20 text-blue-400" />
                             )}
@@ -211,7 +301,9 @@ export default function Landing() {
                                 <Bookmark className="w-4 h-4 mr-1" />
                                 {q.totalQuestions || 0} câu
                               </span>
-                              <span>{q.totalParticipants || 0} lượt chơi</span>
+                              <span>
+                                {q.totalParticipants || 0} lượt chơi
+                              </span>
                             </div>
 
                             <Button
@@ -235,7 +327,9 @@ export default function Landing() {
                       variant="outline"
                       size="sm"
                       disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      onClick={() =>
+                        setCurrentPage((p) => Math.max(p - 1, 1))
+                      }
                     >
                       ← Trước
                     </Button>
@@ -258,7 +352,9 @@ export default function Landing() {
                       variant="outline"
                       size="sm"
                       disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(p + 1, totalPages))
+                      }
                     >
                       Sau →
                     </Button>
