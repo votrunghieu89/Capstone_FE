@@ -103,18 +103,3 @@ export const useGetAllTopic = () => {
     queryFn: getAllTopic,
   });
 };
-export const checkQuizExpired = async (quizId: number, qgId: number) => {
-  const response = await apiClient.post("/TeacherReport/check-expired", {
-    quizid: quizId,
-    qgId: qgId
-  });
-  return response;
-};
-
-export const endQuizNow = async (quizId: number, groupId: number) => {
-  const response = await apiClient.post("/TeacherReport/end-now", {
-    quizid: quizId,
-    groupid: groupId
-  });
-  return response;
-};

@@ -4,7 +4,7 @@ import { Button } from './Button';
 import { TeacherQuizReportFlat} from '../../libs/api/teacherReportApi';
        
 
-import { checkQuizExpired, endQuizNow } from '../../libs/api/quizApi';
+//import { checkQuizExpired, endQuizNow } from '../../libs/api/quizApi';
 interface TeacherReportCardProps {
     report: TeacherQuizReportFlat;
     onViewDetail: () => void;
@@ -21,36 +21,7 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
         return new Date(dateStr).toLocaleString("vi-VN");
     };
 
-    useEffect(() => {
-        async function checkStatus() {
-            try {
-                const res = await checkQuizExpired(report.QuizId, report.GroupId);
 
-                if ((res as any).data?.isExpired === true) {
-                    setStatus("Completed");
-                }
-            } catch (err) {
-                console.error("Check expired error:", err);
-            }
-        }
-
-        checkStatus();
-    }, [report.QuizId, report.GroupId]);
-
-    const handleEndNow = async () => {
-        try {
-            setLoading(true);
-
-            await endQuizNow(report.QuizId, report.GroupId);
-
-            setStatus("Completed");
-            setExpiredTime(new Date().toISOString());
-        } catch (err) {
-            console.error("End now error:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const getStatusColor = (status: string) => {
         switch (status?.toLowerCase()) {
@@ -109,18 +80,7 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
                         {formatDate(expiredTime ?? undefined)}
                     </p>
 
-                    {/* ⭐ NÚT HẾT HẠN NGAY */}
-                    {status === "Pending" && (
-                        <Button 
-                            size="sm" 
-                            variant="destructive"
-                            className="mt-1"
-                            onClick={handleEndNow}
-                            disabled={loading}
-                        >
-                            {loading ? "Đang xử lý..." : "Hết hạn ngay"}
-                        </Button>
-                    )}
+                    
                 </div>
 
                 <Button size="sm" onClick={onViewDetail}>
