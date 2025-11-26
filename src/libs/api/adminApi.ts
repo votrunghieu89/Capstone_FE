@@ -141,23 +141,14 @@ export const adminApi = {
   },
 
   /**
-   * Lấy dữ liệu biểu đồ quiz theo tháng (6 tháng gần nhất)
+   * Lấy dữ liệu biểu đồ quiz theo tháng (12 tháng của năm được chọn)
    */
   async getQuizMonthlyChart(year: number): Promise<MonthlyStats[]> {
-    const currentMonth = new Date().getMonth() + 1;
     const months = [];
 
-    // Lấy 6 tháng gần nhất
-    for (let i = 5; i >= 0; i--) {
-      let month = currentMonth - i;
-      let yearAdjusted = year;
-
-      if (month <= 0) {
-        month += 12;
-        yearAdjusted -= 1;
-      }
-
-      months.push({ month, year: yearAdjusted });
+    // Lấy tất cả 12 tháng của năm được chọn
+    for (let month = 1; month <= 12; month++) {
+      months.push({ month, year });
     }
 
     const results = await Promise.all(
@@ -172,23 +163,14 @@ export const adminApi = {
   },
 
   /**
-   * Lấy dữ liệu biểu đồ tài khoản theo tháng (6 tháng gần nhất)
+   * Lấy dữ liệu biểu đồ tài khoản theo tháng (12 tháng của năm được chọn)
    */
   async getAccountMonthlyChart(year: number): Promise<MonthlyStats[]> {
-    const currentMonth = new Date().getMonth() + 1;
     const months = [];
 
-    // Lấy 6 tháng gần nhất
-    for (let i = 5; i >= 0; i--) {
-      let month = currentMonth - i;
-      let yearAdjusted = year;
-
-      if (month <= 0) {
-        month += 12;
-        yearAdjusted -= 1;
-      }
-
-      months.push({ month, year: yearAdjusted });
+    // Lấy tất cả 12 tháng của năm được chọn
+    for (let month = 1; month <= 12; month++) {
+      months.push({ month, year });
     }
 
     const results = await Promise.all(
@@ -221,9 +203,15 @@ export const adminApi = {
       console.error("Error fetching audit logs:", error);
       // Nếu BE lỗi hoặc thiếu, chỉ log và trả về mảng rỗng
       if (error.response) {
-        console.error("BE Response Error:", error.response.status, error.response.data);
+        console.error(
+          "BE Response Error:",
+          error.response.status,
+          error.response.data
+        );
       } else if (error.code === "ERR_NETWORK") {
-        console.error("BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại");
+        console.error(
+          "BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại"
+        );
       }
       return [];
     }
@@ -264,5 +252,25 @@ export const adminApi = {
       `/Admin/unban-account/${accountId}`,
       {}
     );
+  },
+
+  /**
+   * Tìm kiếm tài khoản theo email
+   * GET /api/Search/searchAccountByEmail?email=xxx
+   */
+  async searchAccountByEmail(email: string): Promise<AccountByRole | null> {
+    try {
+      const response = await apiClient.get<AccountByRole>(
+        `/Search/searchAccountByEmail?email=${encodeURIComponent(email)}`
+      );
+      return response;
+    } catch (error: any) {
+      // Nếu không tìm thấy (404), trả về null
+      if (error.response?.status === 404) {
+        return null;
+      }
+      console.error("Error searching account by email:", error);
+      throw error;
+    }
   },
 };

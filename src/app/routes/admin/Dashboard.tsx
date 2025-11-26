@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [logsError, setLogsError] = useState<string | null>(null);
 
   // Gọi API khi component mount
@@ -118,10 +119,9 @@ export default function AdminDashboard() {
     const fetchChartData = async () => {
       try {
         setChartsLoading(true);
-        const currentYear = new Date().getFullYear();
         const [quizData, accountData] = await Promise.all([
-          adminApi.getQuizMonthlyChart(currentYear),
-          adminApi.getAccountMonthlyChart(currentYear),
+          adminApi.getQuizMonthlyChart(selectedYear),
+          adminApi.getAccountMonthlyChart(selectedYear),
         ]);
         setQuizChartData(quizData);
         setAccountChartData(accountData);
@@ -146,8 +146,39 @@ export default function AdminDashboard() {
     fetchDashboardData();
     fetchAccountsForMapping();
     fetchAuditLogs();
-    fetchChartData();
   }, []);
+
+  // Fetch chart data khi selectedYear thay đổi
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        setChartsLoading(true);
+        const [quizData, accountData] = await Promise.all([
+          adminApi.getQuizMonthlyChart(selectedYear),
+          adminApi.getAccountMonthlyChart(selectedYear),
+        ]);
+        setQuizChartData(quizData);
+        setAccountChartData(accountData);
+      } catch (err: any) {
+        console.error("❌ Error fetching chart data:", err);
+        if (err.response) {
+          console.error(
+            "⚠️ BE Response Error:",
+            err.response.status,
+            err.response.data
+          );
+        } else if (err.code === "ERR_NETWORK") {
+          console.error(
+            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint chart không tồn tại"
+          );
+        }
+      } finally {
+        setChartsLoading(false);
+      }
+    };
+
+    fetchChartData();
+  }, [selectedYear]);
 
   const goDashboard = () => navigate("/admin");
 
@@ -460,12 +491,48 @@ export default function AdminDashboard() {
             </div>
 
             {/* Biểu đồ thống kê */}
+            <div className="mb-6">
+              <div className="card">
+                <div className="card-content">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-secondary-900">
+                        Biểu đồ thống kê
+                      </h3>
+                      <p className="text-sm text-secondary-600 mt-1">
+                        Chọn năm để xem dữ liệu
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm font-medium text-secondary-700">
+                        Năm:
+                      </label>
+                      <select
+                        className="input w-32"
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                      >
+                        {Array.from({ length: 10 }, (_, i) => {
+                          const year = new Date().getFullYear() - i;
+                          return (
+                            <option key={year} value={year}>
+                              {year}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {/* Biểu đồ Quiz theo tháng */}
               <div className="card">
                 <div className="card-header">
                   <h3 className="text-lg font-semibold text-secondary-900">
-                    Quiz theo tháng
+                    Quiz theo tháng ({selectedYear})
                   </h3>
                 </div>
                 <div className="card-content">
@@ -523,7 +590,7 @@ export default function AdminDashboard() {
               <div className="card">
                 <div className="card-header">
                   <h3 className="text-lg font-semibold text-secondary-900">
-                    Tài khoản theo tháng
+                    Tài khoản theo tháng ({selectedYear})
                   </h3>
                 </div>
                 <div className="card-content">

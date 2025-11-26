@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
-import { Trash2, Calendar, ArrowLeft } from "lucide-react";
+import { Calendar, ArrowLeft, Search, X } from "lucide-react";
 import { Button } from "../../../components/common/Button";
-import { Modal } from "../../../components/common/Modal";
-import { storage } from "../../../libs/storage";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../../../libs/api/adminApi";
 import { Spinner } from "../../../components/common/Spinner";
@@ -20,65 +18,89 @@ interface User {
 
 export default function AdminUsers() {
   const [filterRole, setFilterRole] = useState("all");
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10); // 10 users mỗi trang
   const [totalUsers, setTotalUsers] = useState(0);
+  const [searchEmail, setSearchEmail] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   const navigate = useNavigate();
-  const userInfo = storage.getUser();
 
   // Tính tổng số trang
   const totalPages = Math.ceil(totalUsers / pageSize);
 
-  // Gọi API lấy danh sách users
+  // Gọi API lấy danh sách users hoặc tìm kiếm
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Lấy tất cả users để đếm total (hoặc BE nên trả về totalCount)
-        const allAccounts = await adminApi.getAllAccounts(1, 1000);
-        setTotalUsers(allAccounts.length);
+        // Nếu có search email, gọi API tìm kiếm
+        if (searchEmail.trim()) {
+          setIsSearching(true);
+          const account = await adminApi.searchAccountByEmail(
+            searchEmail.trim()
+          );
 
-        // Pagination ở frontend vì BE không hỗ trợ totalCount
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedAccounts = allAccounts.slice(startIndex, endIndex);
+          if (account) {
+            // Convert AccountByRole sang User format
+            const convertedUser: User = {
+              id: account.accountId.toString(),
+              email: account.email,
+              fullName: account.email.split("@")[0],
+              role: account.role as "Admin" | "Teacher" | "Student",
+              isActive: account.isActive,
+              phone: undefined,
+              createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
+              lastLogin: undefined,
+            };
+            setUsers([convertedUser]);
+            setTotalUsers(1);
+          } else {
+            setUsers([]);
+            setTotalUsers(0);
+          }
+        } else {
+          // Không có search, lấy danh sách bình thường
+          setIsSearching(false);
+          const allAccounts = await adminApi.getAllAccounts(1, 1000);
+          setTotalUsers(allAccounts.length);
 
-        // Convert AccountByRole sang User format
-        const convertedUsers: User[] = paginatedAccounts.map((account) => ({
-          id: account.accountId.toString(),
-          email: account.email,
-          fullName: account.email.split("@")[0],
-          role: account.role as "Admin" | "Teacher" | "Student",
-          isActive: account.isActive,
-          phone: undefined,
-          createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
-          lastLogin: undefined,
-        }));
+          // Pagination ở frontend vì BE không hỗ trợ totalCount
+          const startIndex = (page - 1) * pageSize;
+          const endIndex = startIndex + pageSize;
+          const paginatedAccounts = allAccounts.slice(startIndex, endIndex);
 
-        setUsers(convertedUsers);
+          // Convert AccountByRole sang User format
+          const convertedUsers: User[] = paginatedAccounts.map((account) => ({
+            id: account.accountId.toString(),
+            email: account.email,
+            fullName: account.email.split("@")[0],
+            role: account.role as "Admin" | "Teacher" | "Student",
+            isActive: account.isActive,
+            phone: undefined,
+            createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
+            lastLogin: undefined,
+          }));
+
+          setUsers(convertedUsers);
+        }
       } catch (err) {
         console.error("Error fetching users:", err);
         setError("Không thể tải danh sách người dùng");
+        setUsers([]);
+        setTotalUsers(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUsers();
-  }, [page, pageSize]);
-
-  const handleLogout = () => {
-    storage.clearAuth();
-    navigate("/auth/login");
-  };
+  }, [page, pageSize, searchEmail]);
 
   const goDetail = (id: string) => {
     navigate(`/admin/users/${id}`);
@@ -90,38 +112,6 @@ export default function AdminUsers() {
     const matchesRole = filterRole === "all" || user.role === filterRole;
     return matchesRole;
   });
-
-  const handleDeleteUser = async (user: User) => {
-    setSelectedUser(user);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDelete = async () => {
-    if (selectedUser) {
-      try {
-        // Gọi API ban account
-        await adminApi.banAccount(parseInt(selectedUser.id));
-        // Refresh danh sách sau khi ban
-        const accounts = await adminApi.getAllAccounts(page, pageSize);
-        const convertedUsers: User[] = accounts.map((account) => ({
-          id: account.accountId.toString(),
-          email: account.email,
-          fullName: account.email.split("@")[0],
-          role: account.role as "Admin" | "Teacher" | "Student",
-          isActive: account.isActive,
-          phone: undefined,
-          createdAt: new Date(account.createAt).toLocaleDateString("vi-VN"),
-          lastLogin: undefined,
-        }));
-        setUsers(convertedUsers);
-        setShowDeleteModal(false);
-        setSelectedUser(null);
-      } catch (err) {
-        console.error("Error banning user:", err);
-        alert("Không thể cấm người dùng này");
-      }
-    }
-  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -170,26 +160,58 @@ export default function AdminUsers() {
         {/* Filters */}
         <div className="card mb-6">
           <div className="card-content">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-secondary-900">
-                  Quản lý người dùng
-                </h3>
-                <p className="text-sm text-secondary-600 mt-1">
-                  Danh sách tất cả người dùng trong hệ thống
-                </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-secondary-900">
+                    Quản lý người dùng
+                  </h3>
+                  <p className="text-sm text-secondary-600 mt-1">
+                    Danh sách tất cả người dùng trong hệ thống
+                  </p>
+                </div>
               </div>
-              <div className="md:w-48">
-                <select
-                  className="input"
-                  value={filterRole}
-                  onChange={(e) => setFilterRole(e.target.value)}
-                >
-                  <option value="all">Tất cả vai trò</option>
-                  <option value="Admin">Admin</option>
-                  <option value="Teacher">Giáo viên</option>
-                  <option value="Student">Học sinh</option>
-                </select>
+
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Tìm kiếm email */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-secondary-400" />
+                  <input
+                    type="text"
+                    className="input pl-10 pr-10"
+                    placeholder="Tìm kiếm theo email..."
+                    value={searchEmail}
+                    onChange={(e) => {
+                      setSearchEmail(e.target.value);
+                      setPage(1); // Reset về trang 1 khi search
+                    }}
+                  />
+                  {searchEmail && (
+                    <button
+                      onClick={() => {
+                        setSearchEmail("");
+                        setPage(1);
+                      }}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-secondary-400 hover:text-secondary-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter role */}
+                <div className="md:w-48">
+                  <select
+                    className="input"
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                  >
+                    <option value="all">Tất cả vai trò</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Teacher">Giáo viên</option>
+                    <option value="Student">Học sinh</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -273,24 +295,13 @@ export default function AdminUsers() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => goDetail(user.id)}
-                              >
-                                Xem
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteUser(user)}
-                                className="text-error-600 hover:text-error-700"
-                                title="Cấm tài khoản"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => goDetail(user.id)}
+                            >
+                              Xem
+                            </Button>
                           </td>
                         </tr>
                       ))
@@ -302,8 +313,8 @@ export default function AdminUsers() {
           </div>
         </div>
 
-        {/* Pagination */}
-        {!loading && !error && totalUsers > 0 && (
+        {/* Pagination - Chỉ hiển thị khi không search */}
+        {!loading && !error && totalUsers > 0 && !isSearching && (
           <div className="flex items-center justify-between mt-6">
             <div className="text-sm text-secondary-700">
               Hiển thị {Math.min((page - 1) * pageSize + 1, totalUsers)} -{" "}
@@ -415,31 +426,6 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Xác nhận xóa tài khoản"
-      >
-        <div className="space-y-4">
-          <p className="text-secondary-600">
-            Bạn có chắc chắn muốn xóa tài khoản{" "}
-            <span className="font-semibold text-secondary-900">
-              {selectedUser?.email}
-            </span>{" "}
-            không? Hành động này không thể hoàn tác.
-          </p>
-          <div className="flex justify-end space-x-3">
-            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-              Hủy
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
-              Xóa tài khoản
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
