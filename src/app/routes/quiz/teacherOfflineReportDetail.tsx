@@ -1,3 +1,4 @@
+//teacherOfflineReportDetail.tsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -35,79 +36,79 @@ export default function TeacherOfflineReportDetail() {
     // LOAD ALL 3 API
     // ============================
     useEffect(() => {
-        const loadData = async () => {
-            try {
-                if (!quizId || !qgId || !groupId) return;
+    const loadData = async () => {
+        try {
+            if (!quizId || !qgId || !groupId) return;
 
-                // ✔ 1) SUMMARY
-                const summaryRes: any = await apiClient.get(
-                    `/TeacherReport/offline/detail-report?OfflineReportId=${qgId}&QuizId=${quizId}`
-                );
+            // 1) CALL SUMMARY API
+            const summaryRes: any = await apiClient.get(
+                `/TeacherReport/offline/detail-report?OfflineReportId=${qgId}&QuizId=${quizId}`
+            );
 
-                // ✔ 2) STUDENTS
-                const studentRes: any = await apiClient.get(
-                    `/TeacherReport/offline/student-report?QuizId=${quizId}&QGId=${qgId}&GroupId=${groupId}`
-                );
+            // 👉 LẤY QGID CHUẨN TỪ API DETAIL
+            const realQgId = summaryRes.qgId;
+            console.log("QG ID thực lấy từ detail:", realQgId);
 
-                // ✔ 3) QUESTIONS
-                const questionRes: any = await apiClient.get(
-                    `/TeacherReport/offline/question-report?QuizId=${quizId}&QGId=${qgId}&GroupId=${groupId}`
-                );
+            // 2) CALL STUDENT API
+            const studentRes: any = await apiClient.get(
+                `/TeacherReport/offline/student-report?QuizId=${quizId}&QGId=${realQgId}&GroupId=${groupId}`
+            );
 
-                // ============================
-                // MAP SUMMARY
-                // ============================
-                setSummary({
-                    quizTitle: summaryRes.quizTitle,
-                    totalQuestions: summaryRes.totalQuestions,
-                    totalStudents: summaryRes.totalParticipants,
-                    highestScore: summaryRes.highestScore,
-                    lowestScore: summaryRes.lowestScore,
-                    avgScore: summaryRes.averageScore,
-                    startDate: summaryRes.startDate,
-                    completedAt: summaryRes.endDate,
-                });
+            // 3) CALL QUESTION API
+            const questionRes: any = await apiClient.get(
+                `/TeacherReport/offline/question-report?QuizId=${quizId}&QGId=${realQgId}&GroupId=${groupId}`
+            );
 
-                // ============================
-                // MAP STUDENTS
-                // ============================
-                setStudents(
-                    studentRes.map((s: any) => ({
-                        studentId: s.studentId,
-                        fullName: s.fullname,
-                        rank:s.rank,
-                        totalQuestions: s.totalQuestions,
-                        correct: s.numberOfCorrectAnswers,
-                        wrong: s.numberOfWrongAnswers,
-                        finalScore: s.finalScore,
-                        completedAt: s.completedAt,
-                        count:s.countAttempts,
-                    }))
-                );
+            // MAP SUMMARY
+            setSummary({
+                quizTitle: summaryRes.quizTitle,
+                totalQuestions: summaryRes.totalQuestions,
+                totalStudents: summaryRes.totalParticipants,
+                highestScore: summaryRes.highestScore,
+                lowestScore: summaryRes.lowestScore,
+                avgScore: summaryRes.averageScore,
+                startDate: summaryRes.startDate,
+                completedAt: summaryRes.endDate,
+            });
 
-                // ============================
-                // MAP QUESTIONS
-                // ============================
-                setQuestions(
-                    questionRes.map((q: any) => ({
-                        id: q.questionId,
-                        questionText: q.questionContent,
-                        totalAnswers: q.totalAnswers,
-                        correctCount: q.correctCount,
-                        wrongCount: q.wrongCount,
-                        percentageCorrect: q.percentageCorrect,
-                    }))
-                );
-            } catch (err) {
-                console.error(err);
-                setError("Không thể tải dữ liệu báo cáo.");
-            } finally {
-                setLoading(false);
-            }
-        };
+            // MAP STUDENTS
+            setStudents(
+                studentRes.map((s: any) => ({
+                    studentId: s.studentId,
+                    fullName: s.fullname,
+                    rank: s.rank,
+                    totalQuestions: s.totalQuestions,
+                    correct: s.numberOfCorrectAnswers,
+                    wrong: s.numberOfWrongAnswers,
+                    finalScore: s.finalScore,
+                    completedAt: s.completedAt,
+                    count: s.countAttempts,
+                }))
+            );
 
-        loadData();
-    }, [quizId, qgId, groupId]);
+            // MAP QUESTIONS
+            setQuestions(
+                questionRes.map((q: any) => ({
+                    id: q.questionId,
+                    questionText: q.questionContent,
+                    totalAnswers: q.totalAnswers,
+                    correctCount: q.correctCount,
+                    wrongCount: q.wrongCount,
+                    percentageCorrect: q.percentageCorrect,
+                }))
+            );
+
+        } catch (err) {
+            console.error(err);
+            setError("Không thể tải dữ liệu báo cáo.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    loadData();
+}, [quizId, qgId, groupId]);
+
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "—";
@@ -279,7 +280,7 @@ export default function TeacherOfflineReportDetail() {
 
                                     <tbody>
                                         {questions.map((q, index) => (
-                                            <tr key={q.questionId} className="text-center">
+                                            <tr key={q.id} className="text-center">
                                                 <td className="p-3 border">{index + 1}</td>
                                                 <td className="p-3 border text-left">{q.questionText}</td>
                                                 <td className="p-3 border">{q.totalAnswers}</td>

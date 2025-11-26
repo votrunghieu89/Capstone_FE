@@ -52,7 +52,8 @@ export default function Landing() {
 
   // API: filter theo topic
   const useFiltered = useFilterByTopic(topicId ?? null, currentPage, pageSize);
-
+  // lay tong cac quiz de phan trang
+  const useFilteredAll = useFilterByTopic(topicId ?? null, 1, 10000);
   // Loading / Error
   const isLoading =
     topicId === null ? useAllQuiz.isLoading : useFiltered.isLoading;
@@ -246,17 +247,27 @@ export default function Landing() {
         ) : (
           <>
             <p className="text-sm text-secondary-600 mb-6 font-medium">
-              Tìm thấy {filtered.length} quiz
-            </p>
+                {topicId === null
+                  ? `Tìm thấy ${filtered.length} quiz` 
+                  : `Tìm thấy ${(useFilteredAll.data as any || []).length} quiz`}
+              </p>
 
             {/* Phân trang FE */}
             {(() => {
-              const startIndex = (currentPage - 1) * pageSize;
-              const paginated = filtered.slice(
-                startIndex,
-                startIndex + pageSize
-              );
-              const totalPages = Math.ceil(filtered.length / pageSize);
+              let paginated = [];
+              let totalPages = 1;
+
+              if (topicId === null) {
+               //Fe se phan trang neu chon muc tat ca
+                const startIndex = (currentPage - 1) * pageSize;
+                paginated = filtered.slice(startIndex, startIndex + pageSize);
+                totalPages = Math.ceil(filtered.length / pageSize);
+              } else {
+               //chon cac topic khac thi phan trang theo be
+                paginated = filtered;
+                const hasNextPage = filtered.length === pageSize;
+                totalPages = hasNextPage ? currentPage + 1 : currentPage;
+              }
 
               return (
                 <>
@@ -349,15 +360,17 @@ export default function Landing() {
                     ))}
 
                     <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === totalPages}
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(p + 1, totalPages))
-                      }
-                    >
-                      Sau →
-                    </Button>
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      topicId === null
+                        ? currentPage === totalPages
+                        : paginated.length < pageSize
+                    }
+                    onClick={() => setCurrentPage((p) => p + 1)}
+                  >
+                    Sau →
+                  </Button>
                   </div>
                 </>
               );

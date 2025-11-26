@@ -75,7 +75,7 @@ const mapOnlineReports = (raw: any[]): TeacherQuizReportFlat[] => {
 
     return raw.map(item => ({
         QuizId: item.quizId,
-        OfflineReportId: item.onlineReportId, // dùng ID này khi xem detail
+        OfflineReportId: item.onlineReportId, // dùng ID này khi xem detail....
         Title: item.reportName ?? "Online Quiz",
         GroupName: "Online Quiz",
         GroupId: 0,
