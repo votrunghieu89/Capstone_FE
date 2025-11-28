@@ -1,30 +1,22 @@
 //home.tsx ver 2
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Search,
-  Play,
-  SlidersHorizontal,
-  Bookmark,
-  BookOpen,
-} from "lucide-react";
+import { Play, SlidersHorizontal, Bookmark, BookOpen } from "lucide-react";
 import { Button } from "../../components/common/Button";
 import { Logo } from "../../components/common/Logo";
 import { TopNavbar } from "../../components/layout/TopNavbar";
 import { Footer } from "../../components/layout/Footer";
 import { storage } from "../../libs/storage";
 import { useMemo, useState } from "react";
-import { useQuery } from '@tanstack/react-query';
-import { useGetPublicQuizzes } from '../../libs/api/quizApi';
+import { useQuery } from "@tanstack/react-query";
+import { useGetPublicQuizzes } from "../../libs/api/quizApi";
 import { Spinner } from "../../components/common/Spinner";
 export default function Landing() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Tất cả");
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
-  const { data: apiQuizzes, isLoading, isError, error } = useGetPublicQuizzes(1,12);
+  const { data: apiQuizzes, isLoading, isError } = useGetPublicQuizzes(1, 12);
   const quizzes = (apiQuizzes as any[]) || [];
-  const totalCount = quizzes.length;
   const categories = [
     "Tất cả",
     "Toán học",
@@ -36,26 +28,10 @@ export default function Landing() {
   ];
 
   const filtered = useMemo(() => {
-    const s = search.trim().toLowerCase();
     return quizzes.filter((q) => {
-      const topicMatch =
-        activeCategory === "Tất cả" || q.topicName === activeCategory;
-      if (!topicMatch) return false;
-
-      if (!s) return true;
-
-      const title = q.title?.toLowerCase?.() ?? "";
-      const description = q.description?.toLowerCase?.() ?? "";
-      const teacher =
-        q.teacherName?.toLowerCase?.() ||
-        q.createdBy?.toLowerCase?.() ||
-        "";
-
-      return (
-        title.includes(s) || description.includes(s) || teacher.includes(s)
-      );
+      return activeCategory === "Tất cả" || q.topicName === activeCategory;
     });
-  }, [activeCategory, search, quizzes]);
+  }, [activeCategory, quizzes]);
 
   const user = storage.getUser();
 
@@ -80,7 +56,6 @@ export default function Landing() {
           </div>
         </header>
       )}
-
       <main className="relative z-10 flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         {/* Hero with gradient card background like mock */}
         <section className="mb-8">
@@ -100,16 +75,7 @@ export default function Landing() {
                 nghìn bài quiz thú vị và nâng cao kiến thức của bạn!
               </p>
             </div>
-            <div className="mt-6 max-w-3xl mx-auto flex items-center gap-3">
-              <div className="input flex items-center flex-1 bg-white/95">
-                <Search className="w-4 h-4 mr-2" />
-                <input
-                  className="flex-1 outline-none"
-                  placeholder="Tìm kiếm quiz, giáo viên, chủ đề..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
+            <div className="mt-6 max-w-3xl mx-auto flex items-center justify-center gap-3">
               <Button
                 className="whitespace-nowrap"
                 onClick={() =>
@@ -130,100 +96,153 @@ export default function Landing() {
             </div>
           </div>
         </section>
-
-        {/* Categories filter bar */}
-        <section className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-secondary-50 to-primary-50 rounded-lg border border-primary-100">
-          <div className="flex items-center gap-2 overflow-x-auto">
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setActiveCategory(c)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  activeCategory === c
-                    ? "bg-primary-600 text-white shadow-md"
-                    : "bg-white hover:bg-primary-50 text-secondary-700 border border-secondary-200"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          <button className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all">
-            <SlidersHorizontal className="w-4 h-4 mr-2" /> Lọc
-          </button>
-        </section>
-
-        {/* ✅ LOGIC RENDER API THẬT */}
-        {isLoading ? (
-            <div className="text-center py-20">
-                <Spinner size="lg" className="text-primary-600" />
-                <p className="mt-3 text-secondary-600">Đang tải các Quiz mới nhất...</p>
-            </div>
-        ) : isError ? (
-            <div className="text-center py-20 text-red-600 border border-red-200 p-4 rounded-xl">
-                Lỗi tải dữ liệu. Vui lòng kiểm tra kết nối API.
-            </div>
-        ) : (
-            <>
-                <p className="text-sm text-secondary-600 mb-6 font-medium">
-                    Tìm thấy {filtered.length} quiz
-                </p>
-
-                {/* Featured grid */}
-                <section
-                    id="landing-quizzes"
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                >
-                    {filtered.map((q: any) => (
-                        <div
-                            key={q.quizId}
-                            className="rounded-2xl overflow-hidden border border-primary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
-                        >
-                            <Link to={`/quiz/preview/${q.quizId}`} className="block">
-                                {/* Vùng Cover/Ảnh */}
-                                <div className="h-48 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 flex items-center justify-center">
-                                    {q.avatarURL ? (
-                                        <img src={q.avatarURL} alt={q.title} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <BookOpen className="w-20 h-20 text-blue-400" />
-                                    )}
-                                </div>
-                                <div className="p-5">
-                                    {/* Category */}
-                                    <div className="mb-3">
-                                        <span className="inline-block text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-medium">
-                                            {q.topicName}
-                                        </span>
-                                    </div>
-                                    <h3 className="font-bold text-secondary-900 mb-2 text-lg line-clamp-2">
-                                        {q.title}
-                                    </h3>
-                                    <div className="flex items-center text-sm text-secondary-600 space-x-4 mb-4">
-                                        <span className="flex items-center">
-                                            <Bookmark className="w-4 h-4 mr-1" />
-                                            {q.totalQuestion} câu
-                                        </span>
-                                        <span>{q.totalParticipants || 0} lượt chơi</span>
-                                    </div>
-                                    <Button
-                                        className="w-full"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            navigate(`/quiz/preview/${q.quizId}`, { state: { from: '/' } });
-                                        }}
-                                    >
-                                        Xem chi tiết
-                                    </Button>
-                                </div>
-                            </Link>
-                        </div>
-                      ))}
-                </section>
-            </>
-        )}
-      </main>
-      <Footer />
-    </div>
-  );
+        {/* Categories filter bar */}       {" "}
+        <section className="flex items-center justify-between mb-4 p-4 bg-gradient-to-r from-secondary-50 to-primary-50 rounded-lg border border-primary-100">
+                   {" "}
+          <div className="flex items-center gap-2 overflow-x-auto">
+                       {" "}
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setActiveCategory(c)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeCategory === c
+                    ? "bg-primary-600 text-white shadow-md"
+                    : "bg-white hover:bg-primary-50 text-secondary-700 border border-secondary-200"
+                }`}
+              >
+                                {c}             {" "}
+              </button>
+            ))}
+                     {" "}
+          </div>
+                   {" "}
+          <button className="px-3 py-2 rounded-lg bg-white border border-secondary-200 text-sm flex items-center hover:bg-primary-50 transition-all">
+                        <SlidersHorizontal className="w-4 h-4 mr-2" /> Lọc      
+               {" "}
+          </button>
+                 {" "}
+        </section>
+                {/* ✅ LOGIC RENDER API THẬT */}       {" "}
+        {isLoading ? (
+          <div className="text-center py-20">
+                            <Spinner size="lg" className="text-primary-600" /> 
+                         {" "}
+            <p className="mt-3 text-secondary-600">
+              Đang tải các Quiz mới nhất...
+            </p>
+                       {" "}
+          </div>
+        ) : isError ? (
+          <div className="text-center py-20 text-red-600 border border-red-200 p-4 rounded-xl">
+                            Lỗi tải dữ liệu. Vui lòng kiểm tra kết nối API.    
+                   {" "}
+          </div>
+        ) : (
+          <>
+                           {" "}
+            <p className="text-sm text-secondary-600 mb-6 font-medium">
+                                  Tìm thấy {filtered.length} quiz              
+               {" "}
+            </p>
+                            {/* Featured grid */}               {" "}
+            <section
+              id="landing-quizzes"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+                                 {" "}
+              {filtered.map((q: any) => (
+                <div
+                  key={q.quizId}
+                  className="rounded-2xl overflow-hidden border border-primary-200 hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
+                >
+                  <div
+                    className="block cursor-pointer"
+                    onClick={() => {
+                      if (!user) {
+                        navigate("/auth/login");
+                      } else {
+                        navigate(`/quiz/preview/${q.quizId}`, {
+                          state: { from: "/" },
+                        });
+                      }
+                    }}
+                  >
+                                                    {/* Vùng Cover/Ảnh */}     
+                                             {" "}
+                    <div className="h-48 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 flex items-center justify-center">
+                                                         {" "}
+                      {q.avatarURL ? (
+                        <img
+                          src={q.avatarURL}
+                          alt={q.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <BookOpen className="w-20 h-20 text-blue-400" />
+                      )}
+                                                     {" "}
+                    </div>
+                                                   {" "}
+                    <div className="p-5">
+                                                          {/* Category */}     
+                                                   {" "}
+                      <div className="mb-3">
+                                                               {" "}
+                        <span className="inline-block text-xs px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                                                                     {" "}
+                          {q.topicName}                                       {" "}
+                        </span>
+                                                           {" "}
+                      </div>
+                                                         {" "}
+                      <h3 className="font-bold text-secondary-900 mb-2 text-lg line-clamp-2">
+                                                                {q.title}       
+                                                   {" "}
+                      </h3>
+                                                         {" "}
+                      <div className="flex items-center text-sm text-secondary-600 space-x-4 mb-4">
+                                                               {" "}
+                        <span className="flex items-center">
+                                                                     {" "}
+                          <Bookmark className="w-4 h-4 mr-1" />                 
+                                                    {q.totalQuestion} câu      
+                                                           {" "}
+                        </span>
+                                                               {" "}
+                        <span>{q.totalParticipants || 0} lượt chơi</span>       
+                                                   {" "}
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!user) {
+                            navigate("/auth/login");
+                          } else {
+                            navigate(`/quiz/preview/${q.quizId}`, {
+                              state: { from: "/" },
+                            });
+                          }
+                        }}
+                      >
+                        Xem chi tiết
+                      </Button>
+                                                     {" "}
+                    </div>
+                  </div>
+                                         {" "}
+                </div>
+              ))}
+                             {" "}
+            </section>
+                       {" "}
+          </>
+        )}
+             {" "}
+      </main>
+            <Footer />   {" "}
+    </div>
+  );
 }
-<Footer />
+<Footer />;
