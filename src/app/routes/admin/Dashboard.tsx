@@ -9,7 +9,6 @@ import {
 } from "../../../libs/api/adminApi";
 import { useEffect, useState } from "react";
 import { Spinner } from "../../../components/common/Spinner";
-import { Button } from "../../../components/common/Button";
 import { LineChart, BarChart } from "../../../components/charts";
 
 export default function AdminDashboard() {
@@ -31,7 +30,9 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(
+    new Date().getFullYear()
+  );
   const [logsError, setLogsError] = useState<string | null>(null);
 
   // Gọi API khi component mount
@@ -116,33 +117,6 @@ export default function AdminDashboard() {
       }
     };
 
-    const fetchChartData = async () => {
-      try {
-        setChartsLoading(true);
-        const [quizData, accountData] = await Promise.all([
-          adminApi.getQuizMonthlyChart(selectedYear),
-          adminApi.getAccountMonthlyChart(selectedYear),
-        ]);
-        setQuizChartData(quizData);
-        setAccountChartData(accountData);
-      } catch (err: any) {
-        console.error("❌ Error fetching chart data:", err);
-        if (err.response) {
-          console.error(
-            "⚠️ BE Response Error:",
-            err.response.status,
-            err.response.data
-          );
-        } else if (err.code === "ERR_NETWORK") {
-          console.error(
-            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint chart không tồn tại"
-          );
-        }
-      } finally {
-        setChartsLoading(false);
-      }
-    };
-
     fetchDashboardData();
     fetchAccountsForMapping();
     fetchAuditLogs();
@@ -182,11 +156,6 @@ export default function AdminDashboard() {
 
   const goDashboard = () => navigate("/admin");
 
-  const handleLogout = () => {
-    storage.clearAuth();
-    navigate("/auth/login");
-  };
-
   return (
     <div className="min-h-screen bg-secondary-50">
       {/* Admin Navbar */}
@@ -204,24 +173,6 @@ export default function AdminDashboard() {
               Admin Dashboard
             </span>
           </button>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <p className="text-sm font-medium text-secondary-900">
-                {user?.name || "Admin"}
-              </p>
-              <p className="text-xs text-secondary-500">
-                {user?.email || "admin@example.com"}
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-error-600"
-              onClick={handleLogout}
-            >
-              Đăng xuất
-            </Button>
-          </div>
         </div>
       </div>
 
@@ -510,7 +461,9 @@ export default function AdminDashboard() {
                       <select
                         className="input w-32"
                         value={selectedYear}
-                        onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                        onChange={(e) =>
+                          setSelectedYear(parseInt(e.target.value))
+                        }
                       >
                         {Array.from({ length: 10 }, (_, i) => {
                           const year = new Date().getFullYear() - i;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Users,
@@ -42,7 +41,6 @@ interface ClassWithDetails extends AllGroupDTO {
 }
 
 export default function TeacherClasses() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState<ClassWithDetails[]>([]);
   const [selectedClass, setSelectedClass] = useState<ClassWithDetails | null>(
@@ -366,7 +364,17 @@ export default function TeacherClasses() {
       await fetchGroups();
       await handleViewDetail(selectedClass);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Thêm học sinh thất bại");
+      const apiMessage = err.response?.data?.message;
+      const status = err.response?.status;
+
+      // BE đang trả "Không tìm thấy nhóm" cả khi sai IdUnique,
+      // nên map lại thông báo thân thiện hơn cho giáo viên.
+      const friendlyMessage =
+        status === 404 || apiMessage?.toLowerCase().includes("nhóm")
+          ? "Không tìm thấy học sinh với Id này. Vui lòng kiểm tra lại."
+          : apiMessage || "Thêm học sinh thất bại";
+
+      toast.error(friendlyMessage);
     }
   };
 
@@ -412,6 +420,23 @@ export default function TeacherClasses() {
       return;
     }
 
+    const parsedAttempts = parseInt(quizMaxAttempts, 10);
+    if (Number.isNaN(parsedAttempts) || parsedAttempts <= 0) {
+      toast.error("Số lần làm tối đa phải lớn hơn 0");
+      return;
+    }
+
+    const expiredDate = new Date(quizExpiredTime);
+    if (Number.isNaN(expiredDate.getTime())) {
+      toast.error("Thời gian hết hạn không hợp lệ");
+      return;
+    }
+
+    if (expiredDate.getTime() <= Date.now()) {
+      toast.error("Thời gian hết hạn phải lớn hơn thời điểm hiện tại");
+      return;
+    }
+
     const teacherId = getTeacherId();
     if (teacherId === 0) {
       toast.error("Không tìm thấy thông tin giáo viên");
@@ -425,7 +450,7 @@ export default function TeacherClasses() {
         GroupId: selectedClass.groupId,
         Message: quizMessage.trim() || undefined,
         ExpiredTime: quizExpiredTime, // ISO string from datetime-local input
-        MaxAttempts: parseInt(quizMaxAttempts),
+        MaxAttempts: parsedAttempts,
       });
       toast.success("Giao quiz thành công");
       setSelectedQuizId(null);
@@ -1492,7 +1517,7 @@ export default function TeacherClasses() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-secondary-700 mb-2 block">
-                ID học sinh (IdUnique)
+                ID học sinh
               </label>
               <Input
                 placeholder="Nhập ID học sinh"
