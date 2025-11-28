@@ -69,6 +69,7 @@ export interface StudentCompleteResult {
   totalQuestions: number;
   rank: number;
   questions: StudentQuestionResult[];
+  leaderboard?: LeaderboardEntry[];
 }
 
 export interface StudentQuestionResult {

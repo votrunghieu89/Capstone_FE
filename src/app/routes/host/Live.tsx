@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../../../components/common/Button";
-import { Users, Trophy, Activity, Loader2, AlertTriangle } from "lucide-react";
+import { Users, Trophy, Loader2, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   HOST_LIVE_SESSION_STORAGE_KEY,
@@ -10,6 +10,7 @@ import {
 } from "../../../types/realtime";
 import { getSharedQuizHubConnection } from "../../../libs/quizHub";
 import type { HubConnection } from "@microsoft/signalr";
+import { onlineQuizService } from "../../../services/onlineQuizService";
 
 const mapLeaderboardPayload = (payload: unknown): LeaderboardEntry[] => {
   if (!Array.isArray(payload)) return [];
@@ -63,7 +64,9 @@ export default function HostLive() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [playerCount, setPlayerCount] = useState(0);
   const [status, setStatus] = useState("Đang chờ cập nhật từ học sinh...");
-  const [isStopping, setIsStopping] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [hasSummarized, setHasSummarized] = useState(false);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,6 +102,7 @@ export default function HostLive() {
 
     const handleGameEnded = () => {
       setStatus("Quiz đã kết thúc");
+      setHasSummarized(true);
       toast.success("Quiz đã kết thúc. Có thể đóng phòng.");
     };
 
@@ -114,29 +118,22 @@ export default function HostLive() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [context]);
 
-  const handleStopRoom = async () => {
-    if (!connection || !context) return;
-    if (!context.roomCode) {
-      toast.error("Không tìm thấy mã phòng.");
-      return;
-    }
-    if (
-      !window.confirm(
-        "Thao tác này sẽ đóng phòng ngay lập tức và xóa dữ liệu live. Bạn chắc chắn chứ?"
-      )
-    ) {
-      return;
-    }
-    setIsStopping(true);
+  const handleSummarize = async () => {
+    if (!connection || !context?.roomCode) return;
+    setIsSummarizing(true);
+    setReportStatus(null);
     try {
-      await connection.invoke("EndClick", context.roomCode);
-      toast.success("Đã đóng phòng.");
-      navigate(`/quiz/preview/${context.quizId}`);
+      await connection.invoke("EndAfterComplete", context.roomCode);
+      await onlineQuizService.insertOnlineReport(context.roomCode);
+      setHasSummarized(true);
+      setReportStatus("Đã tổng kết và lưu báo cáo thành công.");
+      toast.success("Đã tổng kết và lưu kết quả.");
     } catch (err) {
       console.error(err);
-      toast.error("Không thể đóng phòng. Vui lòng thử lại.");
+      setReportStatus("Không thể tổng kết. Vui lòng thử lại.");
+      toast.error("Không thể tổng kết. Vui lòng thử lại.");
     } finally {
-      setIsStopping(false);
+      setIsSummarizing(false);
     }
   };
 
@@ -194,108 +191,137 @@ export default function HostLive() {
           </div>
         ) : (
           <>
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white/10 rounded-3xl p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Activity className="w-6 h-6 text-emerald-300" />
-                  <p className="text-lg font-semibold">
-                    Dòng thời gian và hành động
-                  </p>
-                </div>
-                <p className="text-sm text-white/80">
-                  Thống kê realtime được lấy trực tiếp từ SignalR
-                  `ReceiveLeaderboard`.
-                </p>
-                <div className="space-y-3 max-h-60 overflow-auto pr-1 custom-scroll">
-                  {leaderboard.length === 0 ? (
-                    <p className="text-white/70">
-                      Chưa có học sinh gửi đáp án.
-                    </p>
-                  ) : (
-                    leaderboard.map((entry) => (
-                      <div
-                        key={entry.studentId}
-                        className="bg-white/10 rounded-xl px-4 py-3 flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-semibold">{entry.nickname}</p>
-                          <p className="text-sm text-white/70">
-                            Rank #{entry.rank}
-                          </p>
-                        </div>
-                        <p className="text-2xl font-black">{entry.score}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
+            <section className="bg-white/10 rounded-3xl p-6 space-y-6">
+              <div className="flex items-center gap-3">
+                <Trophy className="w-6 h-6 text-yellow-300" />
+                <p className="text-lg font-semibold">Bảng xếp hạng trực tiếp</p>
               </div>
-
-              <div className="bg-white/10 rounded-3xl p-6 space-y-4">
-                <div className="flex items-center gap-3">
-                  <Trophy className="w-6 h-6 text-yellow-300" />
-                  <p className="text-lg font-semibold">Top bảng xếp hạng</p>
-                </div>
-                {topThree.length === 0 ? (
-                  <p className="text-white/70">Chưa có dữ liệu để xếp hạng.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {topThree.map((entry, index) => (
-                      <div
-                        key={entry.studentId ?? index}
-                        className="bg-white/15 rounded-2xl px-4 py-3 flex items-center gap-4"
-                      >
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                            index === 0
-                              ? "bg-yellow-300 text-yellow-900"
-                              : index === 1
-                              ? "bg-gray-300 text-gray-900"
-                              : "bg-orange-300 text-orange-900"
-                          }`}
-                        >
-                          {index + 1}
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold">{entry.nickname}</p>
-                          <p className="text-sm text-white/70">
-                            {entry.score} điểm
-                          </p>
-                        </div>
-                        <p className="text-lg font-bold">#{entry.rank}</p>
+              {leaderboard.length === 0 ? (
+                <p className="text-white/70">
+                  Chưa có học sinh gửi đáp án để hiển thị bảng xếp hạng.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-6">
+                    <div className="flex items-end justify-center gap-4">
+                      {[topThree[1], topThree[0], topThree[2]].map(
+                        (entry, columnIndex) => {
+                          if (!entry) return null;
+                          const visualRank =
+                            columnIndex === 0 ? 2 : columnIndex === 1 ? 1 : 3;
+                          const sizeClass =
+                            columnIndex === 1
+                              ? "h-48"
+                              : columnIndex === 0
+                              ? "h-40"
+                              : "h-36";
+                          const colorClass =
+                            columnIndex === 1
+                              ? "from-yellow-400 to-amber-500"
+                              : columnIndex === 0
+                              ? "from-slate-200 to-slate-400"
+                              : "from-orange-300 to-orange-500";
+                          return (
+                            <div
+                              key={entry.studentId ?? visualRank}
+                              className={`flex-1 flex flex-col items-center`}
+                            >
+                              <div
+                                className={`w-14 h-14 rounded-full bg-white text-purple-700 font-black flex items-center justify-center shadow-lg`}
+                              >
+                                {`#${entry.rank}`}
+                              </div>
+                              <div
+                                className={`mt-3 w-full rounded-3xl bg-gradient-to-t ${colorClass} ${sizeClass} flex flex-col justify-end text-purple-900 shadow-xl`}
+                              >
+                                <div className="bg-white/80 rounded-3xl p-3 text-center space-y-1">
+                                  <p className="text-sm font-semibold text-purple-500">
+                                    Top {visualRank}
+                                  </p>
+                                  <p className="text-lg font-bold text-purple-900">
+                                    {entry.nickname}
+                                  </p>
+                                  <p className="text-sm text-purple-600">
+                                    {entry.score} điểm
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                      )}
+                    </div>
+                    {leaderboard.length > 3 && (
+                      <div className="space-y-3 max-h-72 overflow-auto pr-1 custom-scroll">
+                        {leaderboard.slice(3).map((entry, index) => (
+                          <div
+                            key={entry.studentId ?? `list-${index}`}
+                            className="bg-white/10 rounded-xl px-4 py-3 flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-bold text-white/80">
+                                #{entry.rank}
+                              </span>
+                              <div>
+                                <p className="font-semibold">
+                                  {entry.nickname}
+                                </p>
+                                <p className="text-sm text-white/70">
+                                  {entry.score} điểm
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-xl font-black">{entry.score}</p>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
+                </>
+              )}
+            </section>
+
+            {hasSummarized ? (
+              <div className="bg-white/10 rounded-3xl p-6 space-y-4">
+                <div className="bg-emerald-500/20 border border-emerald-400/40 rounded-2xl px-4 py-3 text-white">
+                  Đã tổng kết và lưu kết quả. Có thể rời trang này an toàn.
+                </div>
+                <Button
+                  onClick={() => navigate("/")}
+                  className="bg-white text-purple-700 hover:bg-white/90"
+                >
+                  Về trang chủ
+                </Button>
+                {reportStatus && (
+                  <p className="text-sm text-white/80">{reportStatus}</p>
                 )}
               </div>
-            </section>
-
-            <section className="bg-white/10 rounded-3xl p-6 space-y-4">
-              <p className="text-lg font-semibold">Hành động</p>
-              <div className="flex flex-wrap gap-4">
+            ) : leaderboard.length === 0 ? (
+              <div className="bg-white/10 rounded-3xl p-6 text-white/80">
+                Chờ học sinh hoàn thành câu đầu tiên để có thể tổng kết.
+              </div>
+            ) : (
+              <div className="bg-white/10 rounded-3xl p-6 flex flex-col gap-3 text-white">
+                <p>Đã nhận dữ liệu từ học sinh. Có thể tổng kết khi cần.</p>
                 <Button
-                  variant="outline"
-                  onClick={handleStopRoom}
-                  disabled={isStopping || !connection}
-                  className="px-6 py-4 font-semibold"
+                  onClick={handleSummarize}
+                  disabled={isSummarizing || !connection}
+                  className="px-6 py-4 font-semibold bg-emerald-500 hover:bg-emerald-600 text-white"
                 >
-                  {isStopping ? (
+                  {isSummarizing ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Đang đóng phòng...
+                      Đang tổng kết...
                     </>
                   ) : (
-                    "Dừng & xóa phòng"
+                    "Tổng kết & lưu kết quả"
                   )}
                 </Button>
-
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate(`/quiz/preview/${context.quizId}`)}
-                >
-                  Thoát về quiz
-                </Button>
+                {reportStatus && (
+                  <p className="text-sm text-white/80">{reportStatus}</p>
+                )}
               </div>
-            </section>
+            )}
           </>
         )}
       </div>

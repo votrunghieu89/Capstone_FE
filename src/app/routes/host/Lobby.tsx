@@ -222,7 +222,7 @@ export default function HostLobby() {
       conn.on("EndClick", handleEndClick);
       conn.on("GameEnded", handleGameEnded);
       conn.on("GameStarted", handleGameStarted);
-    };
+  };
 
     const detachHandlers = (conn: HubConnection) => {
       conn.off("UpdateStudentList", handleUpdateStudentList);

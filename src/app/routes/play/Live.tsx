@@ -1,17 +1,32 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
-import { Users, Clock, X, AlertTriangle, Award } from "lucide-react";
+import {
+  Users,
+  Clock,
+  X,
+  AlertTriangle,
+  Award,
+  Trophy,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import { Button } from "../../../components/common/Button";
 import { Modal } from "../../../components/common/Modal";
 import { storage } from "../../../libs/storage";
 import { quizService, QuestionDetail } from "../../../services/quizService";
-import { onlineQuizService } from "../../../services/onlineQuizService";
+import {
+  onlineQuizService,
+  OnlineAnswerResponse,
+} from "../../../services/onlineQuizService";
 import { offlineQuizService } from "../../../services/offlineQuizService";
 import { toast } from "react-hot-toast";
 import {
   ONLINE_SESSION_STORAGE_KEY,
   OnlineSessionContext,
   StudentCompleteResult,
+  StudentQuestionResult,
+  StudentOptionResult,
+  LeaderboardEntry,
 } from "../../../types/realtime";
 import { getSharedQuizHubConnection } from "../../../libs/quizHub";
 import type { HubConnection } from "@microsoft/signalr";
@@ -696,10 +711,24 @@ export default function PlayLive() {
   );
 }
 
+const mapLeaderboardPayload = (payload: unknown): LeaderboardEntry[] => {
+  if (!Array.isArray(payload)) return [];
+  return payload.map((entry: any, index: number) => ({
+    studentId: entry?.studentId ?? entry?.StudentId ?? `${index}`,
+    nickname:
+      entry?.studentName ??
+      entry?.StudentName ??
+      entry?.nickname ??
+      entry?.Nickname ??
+      "Ẩn danh",
+    score: Number(entry?.score ?? entry?.Score ?? 0),
+    rank: Number(entry?.rank ?? entry?.Rank ?? index + 1),
+  }));
+};
+
 function OnlineLiveMode() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { sessionId } = useParams();
   const [context, setContext] = useState<OnlineSessionContext | null>(null);
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -709,13 +738,51 @@ function OnlineLiveMode() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [answerLocked, setAnswerLocked] = useState(false);
   const [waitingSummary, setWaitingSummary] = useState(false);
-  const [completeResult, setCompleteResult] = useState<StudentCompleteResult | null>(null);
+  const [completeResult, setCompleteResult] =
+    useState<StudentCompleteResult | null>(null);
+  const [totalQuestionCount, setTotalQuestionCount] = useState(0);
+  const [answerResult, setAnswerResult] = useState<
+    "correct" | "wrong" | "timeout" | null
+  >(null);
+  const [revealedCorrectOptionId, setRevealedCorrectOptionId] = useState<
+    number | null
+  >(null);
+  const [localAnswers, setLocalAnswers] = useState<
+    Record<
+      number,
+      { status: "correct" | "wrong" | "timeout"; optionId: number | null }
+    >
+  >({});
+  const normalizedQuestionDetails = useMemo(() => {
+    if (!completeResult?.questions) return [];
+    return completeResult.questions.map((question) => {
+      const local = localAnswers[question.questionId];
+      if (!local) {
+        return question;
+      }
+
+      return {
+        ...question,
+        isSkipped: local.status === "timeout",
+        options: question.options.map((opt) => ({
+          ...opt,
+          isSelectedWrong:
+            local.status === "wrong" &&
+            local.optionId !== null &&
+            opt.optionId === local.optionId,
+        })),
+      };
+    });
+  }, [completeResult, localAnswers]);
   const connectionRef = useRef<HubConnection | null>(null);
+  const completionRequestedRef = useRef(false);
 
   useEffect(() => {
     const stateCtx = location.state as OnlineSessionContext | undefined;
     const storedRaw = sessionStorage.getItem(ONLINE_SESSION_STORAGE_KEY);
-    const storedCtx = storedRaw ? (JSON.parse(storedRaw) as OnlineSessionContext) : null;
+    const storedCtx = storedRaw
+      ? (JSON.parse(storedRaw) as OnlineSessionContext)
+      : null;
     const effective =
       stateCtx?.mode === "online"
         ? stateCtx
@@ -723,7 +790,9 @@ function OnlineLiveMode() {
         ? storedCtx
         : null;
     if (!effective) {
-      setError("Không tìm thấy thông tin phiên live. Vui lòng quay lại trang nhập PIN.");
+      setError(
+        "Không tìm thấy thông tin phiên live. Vui lòng quay lại trang nhập PIN."
+      );
       setLoading(false);
       return;
     }
@@ -734,8 +803,8 @@ function OnlineLiveMode() {
     if (!context) return;
     let mounted = true;
     setLoading(true);
-    quizService
-      .getQuizQuestions(context.quizId)
+    onlineQuizService
+      .cacheQuizQuestions(context.quizId)
       .then((data) => {
         if (!mounted) return;
         if (!data || data.length === 0) {
@@ -743,6 +812,7 @@ function OnlineLiveMode() {
           return;
         }
         setQuestions(data);
+        setTotalQuestionCount(data.length);
         setTimeLeft(data[0].time);
       })
       .catch((err) => {
@@ -756,6 +826,11 @@ function OnlineLiveMode() {
   }, [context]);
 
   useEffect(() => {
+    completionRequestedRef.current = false;
+    setLocalAnswers({});
+  }, [context?.roomCode]);
+
+  useEffect(() => {
     if (!context) return;
     const conn = getSharedQuizHubConnection();
     if (!conn) {
@@ -763,8 +838,18 @@ function OnlineLiveMode() {
       return;
     }
     connectionRef.current = conn;
-    const handleComplete = (payload: StudentCompleteResult) => {
-      setCompleteResult(payload);
+    const handleComplete = (payload: any) => {
+      const leaderboard = mapLeaderboardPayload(
+        payload?.leaderboard ??
+          payload?.Leaderboard ??
+          payload?.leaderboards ??
+          payload?.Leaderboards
+      );
+      const normalized: StudentCompleteResult = {
+        ...payload,
+        leaderboard,
+      };
+      setCompleteResult(normalized);
       setWaitingSummary(false);
     };
     const handleEnd = () => {
@@ -793,6 +878,8 @@ function OnlineLiveMode() {
     setTimeLeft(questions[currentIndex].time);
     setSelectedOption(null);
     setAnswerLocked(false);
+    setAnswerResult(null);
+    setRevealedCorrectOptionId(null);
   }, [currentIndex, questions]);
 
   useEffect(() => {
@@ -804,24 +891,116 @@ function OnlineLiveMode() {
     }
     const timer = setTimeout(() => setTimeLeft((prev) => prev - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft, answerLocked, waitingSummary, completeResult, context, questions, loading]);
+  }, [
+    timeLeft,
+    answerLocked,
+    waitingSummary,
+    completeResult,
+    context,
+    questions,
+    loading,
+  ]);
 
   useEffect(() => {
     if (!answerLocked) return;
+    // Chờ có kết quả để hiển thị feedback trước khi chuyển câu
+    if (!answerResult && !waitingSummary && !completeResult) return;
+
+    const delay = answerResult === "timeout" ? 800 : 2200;
     if (currentIndex >= questions.length - 1) {
       const timeout = setTimeout(() => {
         setWaitingSummary(true);
         setAnswerLocked(false);
-      }, 1000);
+      }, delay);
       return () => clearTimeout(timeout);
     }
+
     const timeout = setTimeout(() => {
       setCurrentIndex((prev) => prev + 1);
       setSelectedOption(null);
       setAnswerLocked(false);
-    }, 1200);
+    }, delay);
     return () => clearTimeout(timeout);
-  }, [answerLocked, currentIndex, questions.length]);
+  }, [
+    answerLocked,
+    answerResult,
+    waitingSummary,
+    completeResult,
+    currentIndex,
+    questions.length,
+  ]);
+
+  useEffect(() => {
+    if (!waitingSummary) return;
+    if (completionRequestedRef.current) return;
+    if (!context?.roomCode || !context.studentId) return;
+    const conn = connectionRef.current;
+    if (!conn) return;
+    completionRequestedRef.current = true;
+    conn
+      .invoke("StudentComplete", context.roomCode, context.studentId)
+      .catch((err) => {
+        completionRequestedRef.current = false;
+        console.error(err);
+        toast.error("Không thể gửi yêu cầu hoàn thành. Thử lại sau.");
+      });
+  }, [waitingSummary, context]);
+
+  const parseBooleanResult = (value: unknown): boolean | null => {
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") {
+      if (value === 1) return true;
+      if (value === 0) return false;
+    }
+    if (typeof value === "string") {
+      if (value.toLowerCase() === "true") return true;
+      if (value.toLowerCase() === "false") return false;
+    }
+    return null;
+  };
+
+  const resolveIsCorrect = (
+    response: OnlineAnswerResponse | null
+  ): boolean | null => {
+    if (response === null || response === undefined) return null;
+    if (typeof response === "boolean") return response;
+    if (typeof response === "object") {
+      if ("isCorrect" in response) {
+        const parsed = parseBooleanResult((response as any).isCorrect);
+        if (parsed !== null) return parsed;
+      }
+      if ("result" in response) {
+        const parsed = parseBooleanResult((response as any).result);
+        if (parsed !== null) return parsed;
+      }
+      if ("data" in response) {
+        return resolveIsCorrect((response as any).data);
+      }
+    }
+    return null;
+  };
+
+  const resolveCorrectOptionId = (
+    response: OnlineAnswerResponse | null
+  ): number | null => {
+    if (!response || typeof response !== "object") return null;
+    if (typeof (response as any).correctOptionId === "number") {
+      return (response as any).correctOptionId;
+    }
+    if (typeof (response as any).correctAnswerId === "number") {
+      return (response as any).correctAnswerId;
+    }
+    if (
+      (response as any).correctOption &&
+      typeof (response as any).correctOption.optionId === "number"
+    ) {
+      return (response as any).correctOption.optionId;
+    }
+    if ((response as any).data) {
+      return resolveCorrectOptionId((response as any).data);
+    }
+    return null;
+  };
 
   const handleSubmit = async (
     optionIndex: number | null,
@@ -837,20 +1016,89 @@ function OnlineLiveMode() {
         optionIndex !== null
           ? currentQuestion.options[optionIndex]?.optionId ?? null
           : null;
-      await onlineQuizService.submitOnlineAnswer({
+      const response = await onlineQuizService.submitOnlineAnswer({
         roomCode: context.roomCode,
         studentId: context.studentId,
         quizId: context.quizId,
         questionId: currentQuestion.questionId,
         optionId,
       });
+
+      const serverCorrectOptionId = resolveCorrectOptionId(response);
+      const fallbackOption = currentQuestion.options.find(
+        (opt) => opt.isCorrect
+      );
+      const effectiveCorrectOptionId =
+        serverCorrectOptionId ?? fallbackOption?.optionId ?? null;
+      setRevealedCorrectOptionId(effectiveCorrectOptionId);
+
+      let resolvedStatus: "correct" | "wrong" | "timeout";
       if (reason === "timeout") {
-        toast.error("Hết thời gian cho câu hỏi này.");
+        resolvedStatus = "timeout";
+        setAnswerResult("timeout");
+      } else {
+        const serverIsCorrect = resolveIsCorrect(response);
+        if (serverIsCorrect !== null) {
+          resolvedStatus = serverIsCorrect ? "correct" : "wrong";
+        } else {
+          const fallbackIsCorrect =
+            optionId !== null &&
+            (optionId === effectiveCorrectOptionId ||
+              currentQuestion.options.some(
+                (opt) => opt.optionId === optionId && opt.isCorrect
+              ));
+          resolvedStatus = fallbackIsCorrect ? "correct" : "wrong";
+        }
+        setAnswerResult(resolvedStatus);
       }
+      setLocalAnswers((prev) => ({
+        ...prev,
+        [currentQuestion.questionId]: {
+          status: resolvedStatus,
+          optionId,
+        },
+      }));
     } catch (err) {
       console.error(err);
       toast.error("Không gửi được đáp án, vui lòng thử lại.");
+      setAnswerLocked(false);
+      return;
     }
+  };
+
+  const getOptionBackground = (index: number) => {
+    const baseColor = [
+      "bg-red-500",
+      "bg-blue-500",
+      "bg-yellow-500",
+      "bg-green-500",
+    ][index];
+    const option = questions[currentIndex]?.options[index];
+    const isCorrectOption =
+      option &&
+      (option.isCorrect ||
+        (revealedCorrectOptionId !== null &&
+          option.optionId === revealedCorrectOptionId));
+    if (!answerLocked || !option) {
+      return `${baseColor} ${
+        selectedOption === index
+          ? "ring-4 ring-white scale-105"
+          : "hover:scale-105"
+      }`;
+    }
+    if (answerResult === "timeout") {
+      if (isCorrectOption) {
+        return "bg-green-500 ring-4 ring-white";
+      }
+      return `${baseColor} opacity-60`;
+    }
+    if (isCorrectOption) {
+      return "bg-green-500 ring-4 ring-white";
+    }
+    if (selectedOption === index && !option.isCorrect) {
+      return "bg-red-500 opacity-90";
+    }
+    return `${baseColor} opacity-40`;
   };
 
   if (loading) {
@@ -868,8 +1116,12 @@ function OnlineLiveMode() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 flex items-center justify-center text-white text-center px-6">
         <div className="max-w-md space-y-4">
-          <p className="text-xl font-semibold">{error || "Không thể bắt đầu quiz."}</p>
-          <Button onClick={() => navigate("/play/join")}>Quay lại nhập PIN</Button>
+          <p className="text-xl font-semibold">
+            {error || "Không thể bắt đầu quiz."}
+          </p>
+          <Button onClick={() => navigate("/play/join")}>
+            Quay lại nhập PIN
+          </Button>
         </div>
       </div>
     );
@@ -879,6 +1131,69 @@ function OnlineLiveMode() {
   if (!currentQuestion) {
     return null;
   }
+  const leaderboardEntries = completeResult?.leaderboard ?? [];
+  const fallbackCorrectCount =
+    typeof completeResult?.correctCount === "number"
+      ? completeResult.correctCount
+      : Object.values(localAnswers).filter(
+          (answer) => answer.status === "correct"
+        ).length;
+  const fallbackWrongCount =
+    typeof completeResult?.wrongCount === "number"
+      ? completeResult.wrongCount
+      : Object.values(localAnswers).filter(
+          (answer) => answer.status === "wrong" || answer.status === "timeout"
+        ).length;
+  const effectiveTotalQuestions =
+    (completeResult?.totalQuestions ?? totalQuestionCount) || questions.length;
+  const questionDetails = normalizedQuestionDetails;
+  const isLastQuestion = currentIndex === questions.length - 1;
+  const hasFinishedQuestions = waitingSummary || !!completeResult;
+  const submitLabel = answerLocked
+    ? "Đã gửi đáp án"
+    : isLastQuestion
+    ? "Nộp bài & xem kết quả"
+    : "Lưu câu trả lời";
+  const accuracy =
+    effectiveTotalQuestions > 0
+      ? Math.round((fallbackCorrectCount / effectiveTotalQuestions) * 100)
+      : 0;
+  const displayName = context.studentName?.trim() || "Ẩn danh";
+
+  const answerFeedback = (() => {
+    switch (answerResult) {
+      case "correct":
+        return {
+          title: "Chính xác!",
+          detail: "Bạn đã ghi điểm câu này.",
+          icon: "🎉",
+          classes: "bg-green-500/90",
+        };
+      case "wrong":
+        return {
+          title: "Sai rồi!",
+          detail: "Đáp án đúng sẽ hiển thị sau khi bạn hoàn thành bài thi.",
+          icon: "😔",
+          classes: "bg-red-500/90",
+        };
+      case "timeout":
+        return {
+          title: "Hết thời gian",
+          detail:
+            selectedOption === null
+              ? "Bạn chưa chọn đáp án nào."
+              : "Câu trả lời bị tính sai.",
+          icon: "⏰",
+          classes: "bg-orange-500/90",
+        };
+      default:
+        return null;
+    }
+  })();
+
+  const handleExit = () => {
+    navigate("/play/join");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-600 via-pink-500 to-purple-700 relative overflow-hidden">
@@ -886,67 +1201,120 @@ function OnlineLiveMode() {
         <div className="absolute top-20 left-12 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-24 right-12 w-80 h-80 bg-pink-300/20 rounded-full blur-3xl"></div>
       </div>
-      <div className="relative z-10 max-w-5xl mx-auto px-6 py-10 space-y-8">
-        <div className="flex items-center justify-between text-white">
-          <div>
-            <p className="text-sm opacity-80">Mã PIN</p>
-            <p className="text-2xl font-black tracking-widest">{context.roomCode}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm opacity-80">Tên bạn</p>
-            <p className="text-xl font-bold">{context.studentName}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-center">
-          <div className="relative">
-            <div className="w-28 h-28 rounded-full bg-white/20 flex items-center justify-center">
-              <span className="text-5xl font-black text-white">{timeLeft}</span>
-            </div>
-            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-purple-600 px-4 py-1 rounded-full text-xs font-bold">
-              giây
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/95 rounded-3xl p-8 shadow-2xl">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center">
-            {currentQuestion.questionContent}
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {currentQuestion.options.map((option, index) => (
-            <button
-              key={option.optionId}
-              onClick={() => {
-                if (!answerLocked) {
-                  setSelectedOption(index);
-                }
-              }}
-              disabled={answerLocked}
-              className={`rounded-2xl p-6 text-left text-white transition transform ${
-                ["bg-red-500", "bg-blue-500", "bg-yellow-500", "bg-green-500"][index]
-              } ${selectedOption === index ? "ring-4 ring-white scale-105" : "hover:scale-105"}`}
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/30 rounded-xl flex items-center justify-center text-2xl">
-                  {["△", "◆", "○", "□"][index]}
-                </div>
-                <p className="text-lg md:text-xl font-semibold flex-1">{option.optionContent}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-
-        <div className="flex justify-center">
-          <Button
-            onClick={() => handleSubmit(selectedOption, "manual")}
-            disabled={answerLocked || selectedOption === null}
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 space-y-8">
+        <div className="bg-black/30 backdrop-blur-md rounded-2xl text-white px-4 py-3 flex flex-wrap items-center gap-4">
+          <button
+            onClick={handleExit}
+            className="flex items-center gap-2 text-sm font-semibold hover:text-white/80"
           >
-            {answerLocked ? "Đã gửi đáp án" : "Lưu câu trả lời"}
-          </Button>
+            <X className="w-4 h-4" />
+            Thoát
+          </button>
+          <div className="flex-1 flex flex-wrap items-center justify-center gap-10 text-center">
+            <div className="min-w-[140px]">
+              <p className="text-xs uppercase tracking-wider opacity-80">
+                Mã PIN
+              </p>
+              <p className="text-xl font-black tracking-widest">
+                {context.roomCode}
+              </p>
+            </div>
+            <div className="min-w-[140px]">
+              <p className="text-xs uppercase tracking-wider opacity-80">
+                Câu hỏi
+              </p>
+              <p className="text-xl font-semibold">
+                {currentIndex + 1}/{questions.length}
+              </p>
+            </div>
+          </div>
+          <div className="text-right min-w-[200px]">
+            <p className="text-xs uppercase tracking-wider opacity-80">
+              Tên hiển thị
+            </p>
+            <p className="text-lg font-semibold truncate">{displayName}</p>
+          </div>
         </div>
+
+        {!hasFinishedQuestions && (
+          <div className="flex flex-col items-center gap-2 text-white">
+            <div className="relative">
+              <div className="w-28 h-28 rounded-full bg-white/15 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-white/70 absolute left-1/2 -translate-x-1/2 -top-4" />
+                <span className="text-5xl font-black">{timeLeft}</span>
+              </div>
+              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white text-purple-600 px-4 py-1 rounded-full text-xs font-bold">
+                giây
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!hasFinishedQuestions && (
+          <>
+            {answerFeedback && (
+              <div
+                className={`rounded-3xl px-8 py-5 text-center shadow-2xl text-white ${answerFeedback.classes}`}
+              >
+                <p className="text-2xl md:text-3xl font-black mb-2">
+                  {answerFeedback.icon} {answerFeedback.title}
+                </p>
+                <p className="text-base md:text-lg opacity-90">
+                  {answerFeedback.detail}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-white/95 rounded-3xl p-8 shadow-2xl">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center">
+                {currentQuestion.questionContent}
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {currentQuestion.options.map((option, index) => (
+                <button
+                  key={option.optionId}
+                  onClick={() => {
+                    if (!answerLocked) {
+                      setSelectedOption(index);
+                    }
+                  }}
+                  disabled={answerLocked}
+                  className={`rounded-2xl p-6 text-left text-white transition transform ${getOptionBackground(
+                    index
+                  )}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/30 rounded-xl flex items-center justify-center text-2xl">
+                      {["△", "◆", "○", "□"][index]}
+                    </div>
+                    <p className="text-lg md:text-xl font-semibold flex-1">
+                      {option.optionContent}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                onClick={() => handleSubmit(selectedOption, "manual")}
+                disabled={answerLocked || selectedOption === null}
+              >
+                {submitLabel}
+              </Button>
+            </div>
+
+            {answerResult && !answerFeedback && (
+              <div className="text-center text-white">
+                <div className="inline-block bg-white/20 px-6 py-4 rounded-2xl font-semibold">
+                  Đã ghi nhận kết quả.
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {waitingSummary && (
           <div className="text-center text-white space-y-4">
@@ -970,7 +1338,7 @@ function OnlineLiveMode() {
         )}
 
         {completeResult && (
-          <div className="bg-white/95 rounded-3xl p-8 shadow-2xl text-gray-900 space-y-4">
+          <div className="bg-white/95 rounded-3xl p-8 shadow-2xl text-gray-900 space-y-6">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-yellow-200 flex items-center justify-center">
                 <Award className="w-8 h-8 text-yellow-700" />
@@ -982,18 +1350,186 @@ function OnlineLiveMode() {
                 </p>
               </div>
             </div>
-            <p>
-              Chính xác:{" "}
-              <span className="font-bold">
-                {completeResult.correctCount}/{completeResult.totalQuestions}
-              </span>
-            </p>
-            <p>Sai: {completeResult.wrongCount}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-purple-50 rounded-2xl p-4 text-center">
+                <p className="text-sm text-gray-500">Độ chính xác</p>
+                <p className="text-3xl font-bold text-purple-700">
+                  {accuracy}%
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-2xl p-4 text-center">
+                <p className="text-sm text-gray-500">Câu đúng</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {fallbackCorrectCount}/{effectiveTotalQuestions}
+                </p>
+              </div>
+              <div className="bg-red-50 rounded-2xl p-4 text-center">
+                <p className="text-sm text-gray-500">Câu sai</p>
+                <p className="text-3xl font-bold text-red-600">
+                  {fallbackWrongCount}
+                </p>
+              </div>
+            </div>
+
+            {questionDetails.length > 0 && (
+              <div className="space-y-4">
+                <p className="text-lg font-semibold text-gray-800">
+                  Chi tiết từng câu hỏi
+                </p>
+                {questionDetails.map(
+                  (question: StudentQuestionResult, index: number) => {
+                    const isSkipped = question.isSkipped;
+                    const selectedWrong = question.options.find(
+                      (opt) => opt.isSelectedWrong
+                    );
+                    const status = isSkipped
+                      ? "skip"
+                      : selectedWrong
+                      ? "wrong"
+                      : "correct";
+                    return (
+                      <div
+                        key={question.questionId}
+                        className={`rounded-2xl p-5 border-2 ${
+                          status === "correct"
+                            ? "bg-green-50 border-green-200"
+                            : status === "wrong"
+                            ? "bg-red-50 border-red-200"
+                            : "bg-gray-50 border-gray-200"
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-white ${
+                                status === "correct"
+                                  ? "bg-green-500"
+                                  : status === "wrong"
+                                  ? "bg-red-500"
+                                  : "bg-gray-500"
+                              }`}
+                            >
+                              {index + 1}
+                            </div>
+                            <p className="font-semibold text-gray-900">
+                              {question.questionContent}
+                            </p>
+                          </div>
+                          <div
+                            className={`flex items-center gap-2 font-semibold ${
+                              status === "correct"
+                                ? "text-green-700"
+                                : status === "wrong"
+                                ? "text-red-700"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            {status === "correct" && (
+                              <>
+                                <CheckCircle className="w-4 h-4" />
+                                Đúng
+                              </>
+                            )}
+                            {status === "wrong" && (
+                              <>
+                                <XCircle className="w-4 h-4" />
+                                Sai
+                              </>
+                            )}
+                            {status === "skip" && <>Bỏ qua</>}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {question.options.map(
+                            (option: StudentOptionResult) => (
+                              <div
+                                key={option.optionId}
+                                className={`p-3 rounded-xl border flex items-center gap-2 ${
+                                  option.isCorrect
+                                    ? "bg-green-100 border-green-300"
+                                    : option.isSelectedWrong
+                                    ? "bg-red-100 border-red-300"
+                                    : "bg-white border-gray-200"
+                                }`}
+                              >
+                                {option.isCorrect && (
+                                  <CheckCircle className="w-4 h-4 text-green-600" />
+                                )}
+                                {option.isSelectedWrong && (
+                                  <XCircle className="w-4 h-4 text-red-600" />
+                                )}
+                                <span
+                                  className={`${
+                                    option.isCorrect || option.isSelectedWrong
+                                      ? "font-semibold"
+                                      : ""
+                                  }`}
+                                >
+                                  {option.optionContent}
+                                </span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
+
+            {leaderboardEntries.length > 0 && (
+              <div className="bg-purple-50 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-3 text-purple-800">
+                  <Trophy className="w-5 h-5" />
+                  <p className="text-lg font-semibold">Bảng xếp hạng phòng</p>
+                </div>
+                <div className="space-y-3 max-h-64 overflow-auto pr-2 custom-scroll">
+                  {leaderboardEntries.map((entry, index) => {
+                    const isMe =
+                      entry.studentId === context.studentId ||
+                      entry.nickname === context.studentName;
+                    return (
+                      <div
+                        key={`${entry.studentId ?? index}-${entry.rank}`}
+                        className={`flex items-center justify-between rounded-xl px-4 py-3 ${
+                          isMe
+                            ? "bg-purple-600 text-white"
+                            : "bg-white text-gray-900"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`w-12 h-12 rounded-full flex items-center justify-center font-bold ${
+                              isMe
+                                ? "bg-white/20"
+                                : "bg-purple-100 text-purple-700"
+                            }`}
+                          >
+                            #{entry.rank}
+                          </span>
+                          <div>
+                            <p className="font-semibold">{entry.nickname}</p>
+                            {isMe && <p className="text-sm opacity-80">Bạn</p>}
+                          </div>
+                        </div>
+                        <p className="text-lg font-semibold">
+                          {entry.score} điểm
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end">
               <Button variant="outline" onClick={() => navigate("/")}>
                 Về trang chủ
               </Button>
-              <Button onClick={() => navigate(`/quiz/preview/${context.quizId}`)}>
+              <Button
+                onClick={() => navigate(`/quiz/preview/${context.quizId}`)}
+              >
                 Xem chi tiết quiz
               </Button>
             </div>
