@@ -95,8 +95,10 @@ export default function QuizPreview() {
         if (data?.avatarURL) {
           // Remove duplicate base URL if exists
           data.avatarURL = data.avatarURL.replace(
-            /^https?:\/\/[^\/]+\/https?:\/\//,
-            "https://"
+            ///^https?:\/\/[^\/]+\/https?:\/\//,
+            //"https://"
+            /^(https?:\/\/[^/]+)\/https?:\/\/[^/]+/,
+            "$1"
           );
           console.log("Fixed Avatar URL:", data.avatarURL);
         }

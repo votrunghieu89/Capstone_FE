@@ -176,11 +176,10 @@ export default function Register() {
       };
 
       // Initialize with callback
-      google.accounts.id.initialize({
-        client_id:
-          import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
-        callback: handleGoogleResponse,
-      });
+    google.accounts.id.initialize({
+      client_id: "",
+      callback: handleGoogleResponse,
+    });
 
       // Create a temporary container for Google button
       const tempDiv = document.createElement("div");

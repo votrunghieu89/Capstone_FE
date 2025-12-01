@@ -20,7 +20,8 @@ import TeacherLayout from "../app/routes/teacher/layout";
 import TeacherFolders from "../app/routes/teacher/Folders";
 import TeacherHistory from "../app/routes/teacher/History";
 import TeacherClasses from "../app/routes/teacher/Classes";
-
+import TeacherOfflineReportDetail from "../app/routes/quiz/teacherOfflineReportDetail"
+import TeacherOnlineReportDetail from "../app/routes/quiz/teacherOnlineReportDetail";
 // Student routes
 import StudentLayout from "../app/routes/student/layout";
 import StudentClasses from "../app/routes/student/Classes";
@@ -47,6 +48,7 @@ import CreateQuiz from "../app/routes/quiz/CreateQuiz";
 import EditQuiz from "../app/routes/quiz/EditQuiz";
 import SoloResult from "../app/routes/quiz/SoloResult";
 import QuizDetail from "../app/routes/quiz/QuizDetail";
+import CreateQuizAI from "../app/routes/quiz/CreateQuizAI";
 export const router = createBrowserRouter(
   [
   {
@@ -92,14 +94,23 @@ export const router = createBrowserRouter(
         </RequireRole>
       </RequireAuth>
     ),
-    children: [
+      children: [
         { index: true, element: <Navigate to="/" replace /> },
         { path: "folders", element: <TeacherFolders /> },
         { path: "history", element: <TeacherHistory /> },
         { path: "classes", element: <TeacherClasses /> },
-    ],
-  },
-  {
+        {
+          path: "/teacher/reports/online/:quizId/:reportId",
+          element: <TeacherOnlineReportDetail />,
+        },
+        {
+          path:"/teacher/reports/offline/:quizId/:qgId/:groupId",
+          element: <TeacherOfflineReportDetail />,
+        },
+    
+      ],
+    },
+    {
       path: "/student",
     element: (
       <RequireAuth>
@@ -165,14 +176,6 @@ export const router = createBrowserRouter(
     { path: "/lobby/:sessionId", element: <HostLobby /> },
     { path: "/quiz/preview/:quizId", element: <QuizPreview /> },
     { path: "/quiz/result/:quizId", element: <SoloResult /> },
-  {
-      path: "/report/detail/:id", 
-      element: (
-        <RequireAuth>
-          <QuizDetail />
-        </RequireAuth>
-      ),
-    },
     { path: "/search", element: <BrowseQuizzes /> },
   {
       path: "/favourites",
@@ -190,17 +193,27 @@ export const router = createBrowserRouter(
       </RequireAuth>
     ),
   },
-  {
+    {
       path: "/quiz/create",
-    element: (
-      <RequireAuth>
+      element: (
+        <RequireAuth>
           <RequireRole roles={["Teacher"]}>
-          <CreateQuiz />
-        </RequireRole>
-      </RequireAuth>
-    ),
-  },
-  {
+            <CreateQuiz />
+          </RequireRole>
+        </RequireAuth>
+      ),
+    },
+    {
+          path: "/quiz/create/ai", // ⬅️ ROUTE MỚI CHO AI
+          element: (
+          <RequireAuth>
+          <RequireRole roles={["Teacher"]}>
+          <CreateQuizAI />
+          </RequireRole>
+          </RequireAuth>
+          ),
+    },
+    {
       path: "/quiz/edit/:quizId",
       element: (
         <RequireAuth>

@@ -238,13 +238,13 @@ export default function AdminDashboard() {
                 <div className="card-content">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-secondary-600">
+                      <p className="text-sm font-medium text-secondary-600 mt-[20px]">
                         Tổng người dùng
                       </p>
                       <p className="text-3xl font-bold text-secondary-900">
                         {stats.totalAccounts.toLocaleString()}
                       </p>
-                      <p className="text-xs text-success-600 mt-1">
+                      <p className="text-xs text-success-600 mt-1 ">
                         {stats.totalStudents} học sinh, {stats.totalTeachers}{" "}
                         giáo viên
                       </p>
@@ -261,7 +261,7 @@ export default function AdminDashboard() {
                 <div className="card-content">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-secondary-600">
+                      <p className="text-sm font-medium text-secondary-600 mt-[20px]">
                         Tổng quiz
                       </p>
                       <p className="text-3xl font-bold text-secondary-900">
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
                 <div className="card-content">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-secondary-600">
+                      <p className="text-sm font-medium text-secondary-600 mt-[20px]">
                         Học sinh
                       </p>
                       <p className="text-3xl font-bold text-secondary-900">
@@ -305,7 +305,7 @@ export default function AdminDashboard() {
                 <div className="card-content">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-secondary-600">
+                      <p className="text-sm font-medium text-secondary-600 mt-[20px]">
                         Giáo viên
                       </p>
                       <p className="text-3xl font-bold text-secondary-900">
@@ -445,9 +445,9 @@ export default function AdminDashboard() {
             <div className="mb-6">
               <div className="card">
                 <div className="card-content">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-[20px]">
                     <div>
-                      <h3 className="text-lg font-semibold text-secondary-900">
+                      <h3 className="text-lg font-semibold text-secondary-900 ">
                         Biểu đồ thống kê
                       </h3>
                       <p className="text-sm text-secondary-600 mt-1">

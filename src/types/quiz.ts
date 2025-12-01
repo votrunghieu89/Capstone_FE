@@ -81,12 +81,12 @@ export interface QuizGroup_API {
   quizzes: QuizInGroup[];
 }
 export interface QuizHistory {
-    QuizId: string; // ID thật từ BE
+    QuizId: number; // ID thật từ BE
     QuizTitle: string; // Tên Quiz
     TotalQuestions: number; // Tổng số câu hỏi
     CompletedAt: string; // Ngày hoàn thành
-
-    // 💡 TRƯỜNG PHÂN BIỆT VAI TRÒ 💡
+    //CreatedAt:string;
+    creatAt:string;
     CreatedBy: string; // Tên NGƯỜI TẠO (Giáo viên)
     CompletedBy?: string; // Tên NGƯỜI HOÀN THÀNH (Học sinh)
 

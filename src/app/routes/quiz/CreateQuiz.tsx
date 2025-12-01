@@ -1,6 +1,7 @@
 //createQuiz.tsx
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -88,6 +89,7 @@ interface FolderResponse {
 }
 
 export default function CreateQuiz() {
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
@@ -321,8 +323,6 @@ export default function CreateQuiz() {
           "Thông tin giáo viên không hợp lệ. Vui lòng đăng nhập lại."
         );
       }
-
-      // 2. Upload ảnh (nếu có)
       let avatarURL: string | undefined = data.avatarUrl; // giữ lại nếu người dùng nhập link
       const formData = new FormData();
       if (thumbnailFile) {
@@ -337,8 +337,7 @@ export default function CreateQuiz() {
       )) as any;
       avatarURL = uploadResponse.imageUrl;
       console.log("LOG 3: File uploaded. URL:", avatarURL);
-
-      // 3. Build payload (tất cả field phải PascalCase theo DTO của BE)
+      // 3. Build payload
       const payload = {
         TeacherId: parseInt(teacherId, 10),
         TopicId: parseInt(data.topicId, 10),
@@ -369,6 +368,11 @@ export default function CreateQuiz() {
       )) as any;
 
       if (response.status === 200 || response.status === 201 || response) {
+
+  if (!data.isPrivate) {
+    console.log("LOG 5: Quiz là CÔNG KHAI. Vô hiệu hóa cache publicQuizzes.");
+    queryClient.invalidateQueries({ queryKey: ['publicQuizzes'],exact:false }); 
+  }
         alert("✅ Tạo quiz thành công!");
         navigate("/teacher/folders");
       } else {

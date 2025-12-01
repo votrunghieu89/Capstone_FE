@@ -313,7 +313,7 @@ export default function StudentClasses() {
           <aside className="space-y-4">
             <div className="card">
               <div className="card-content">
-                <h3 className="text-sm font-semibold text-secondary-900 mb-3">
+                <h3 className="text-sm font-semibold text-secondary-900 mb-3 pt-[20px]">
                   Tham gia lớp học
                 </h3>
                 <form onSubmit={handleJoinClass} className="space-y-3">
@@ -342,7 +342,7 @@ export default function StudentClasses() {
             <div className="card">
               <div className="card-content">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-secondary-900">
+                  <h3 className="text-sm font-semibold text-secondary-900 pt-[20px]">
                     Danh sách lớp đã tham gia
                   </h3>
                   <span className="text-xs text-secondary-500">
@@ -540,7 +540,7 @@ export default function StudentClasses() {
                 </Button>
 
                 <div className="card">
-                  <div className="card-content border-b border-secondary-200">
+                  <div className="card-content border-b border-secondary-200 mt-[25px]">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h2 className="text-2xl font-bold text-secondary-900 mb-2">
@@ -579,7 +579,7 @@ export default function StudentClasses() {
                     </div>
                   </div>
                   <div className="card-content">
-                    <h3 className="text-lg font-semibold text-secondary-900 mb-4">
+                    <h3 className="text-lg font-semibold text-secondary-900 mb-4 pt-[15px]">
                       Quiz đã giao
                     </h3>
                     <div className="flex flex-col min-h-[60vh]">

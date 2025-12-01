@@ -163,7 +163,7 @@ export default function AdminUsers() {
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-secondary-900">
+                  <h3 className="text-lg font-semibold text-secondary-900 mt-[20px]">
                     Quản lý người dùng
                   </h3>
                   <p className="text-sm text-secondary-600 mt-1">

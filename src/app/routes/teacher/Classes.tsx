@@ -727,7 +727,7 @@ export default function TeacherClasses() {
           <aside className="space-y-4">
             <div className="card">
               <div className="card-content">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 pt-[20px]">
                   <h3 className="text-sm font-semibold text-secondary-900">
                     Lớp do bạn sở hữu
                   </h3>
@@ -763,7 +763,7 @@ export default function TeacherClasses() {
 
             <div className="card">
               <div className="card-content">
-                <h3 className="text-sm font-semibold text-secondary-900 mb-3">
+                <h3 className="text-sm font-semibold text-secondary-900 mb-3 pt-[20px]">
                   Lớp gần đây
                 </h3>
 
@@ -907,7 +907,7 @@ export default function TeacherClasses() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                         {/* Mời thành viên */}
                         <div className="card">
-                          <div className="card-content text-center">
+                          <div className="card-content text-center mt-[10px]">
                             <h3 className="font-semibold text-secondary-900 mb-4">
                               Mời thành viên
                             </h3>
@@ -922,7 +922,7 @@ export default function TeacherClasses() {
 
                         {/* Giao */}
                         <div className="card">
-                          <div className="card-content text-center">
+                          <div className="card-content text-center mt-[10px]">
                             <h3 className="font-semibold text-secondary-900 mb-4">
                               Giao
                             </h3>
@@ -954,7 +954,7 @@ export default function TeacherClasses() {
                             {/* Quiz Activities - 2 cards per row on md+ */}
                             {pagedDetailQuizzes.map((quiz: any) => (
                               <div key={quiz.qgId} className="card">
-                                <div className="card-content relative">
+                                <div className="card-content relative mt-[15px]">
                                   {/* Delete icon at top-right */}
                                   <Button
                                     variant="ghost"
@@ -1130,7 +1130,7 @@ export default function TeacherClasses() {
                   {activeTab === "students" && (
                     <div>
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold">Mời thành viên</h3>
+                        <h3 className="font-semibold ">Mời thành viên</h3>
                         <Button
                           size="sm"
                           onClick={() => setShowAddStudentModal(true)}
@@ -1142,7 +1142,7 @@ export default function TeacherClasses() {
                       {/* Card hiển thị mã lớp để học sinh tham gia */}
                       <div className="card mb-6">
                         <div className="card-content">
-                          <p className="text-sm text-secondary-600 mb-2">
+                          <p className="text-sm text-secondary-600 mb-2 pt-[10px]">
                             Chia sẻ mã lớp này với học sinh để họ tham gia:
                           </p>
                           <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
@@ -1196,8 +1196,18 @@ export default function TeacherClasses() {
                         ) : (
                           <div className="space-y-2">
                             {detailStudents.map((student: any) => (
-                              <div key={student.studentId} className="card">
-                                <div className="card-content">
+                              <div
+                                      key={student.studentId}
+                                      className="card"
+                                      style={{
+                                        paddingLeft: "25px",
+                                        height: "68px",
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        justifyContent: "space-around",
+                                        flexDirection: "column",
+                                      }}
+                                    >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                       <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
@@ -1223,7 +1233,7 @@ export default function TeacherClasses() {
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </div>
-                                </div>
+                          
                               </div>
                             ))}
                           </div>

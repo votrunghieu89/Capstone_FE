@@ -45,12 +45,14 @@ export const createQuizHubConnection = (baseUrl: string): HubConnection => {
   const token = storage.getToken();
   const hubUrl = `${baseUrl.replace(/\/+$/, "")}/QuizHub`;
 
-  const builder = new HubConnectionBuilder()
-    .withUrl(hubUrl, token ? { accessTokenFactory: () => token } : undefined)
-    .withAutomaticReconnect()
-    .withServerTimeout(60_000)
-    .withKeepAliveInterval(15_000)
-    .configureLogging(LogLevel.Information);
+  const options = token ? { accessTokenFactory: () => token } : {};
+const builder = new HubConnectionBuilder()
+  .withUrl(hubUrl, options)
+  .withAutomaticReconnect()
+  .withServerTimeout(60_000)
+  .withKeepAliveInterval(15_000)
+  .configureLogging(LogLevel.Information);
+
 
   return builder.build();
 };

@@ -123,9 +123,8 @@ export default function Login() {
       };
 
       // Initialize with callback
-      google.accounts.id.initialize({
-        client_id:
-          import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+        google.accounts.id.initialize({
+        client_id: "111414326741-nq9mnuu8a7ft5vfbqgbu860nch4s47r7.apps.googleusercontent.com",
         callback: handleGoogleResponse,
       });
 
