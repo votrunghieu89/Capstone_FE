@@ -82,7 +82,7 @@ export default function TeacherHistory() {
                 <div className="space-y-4">
                     {filteredReports.map((report) => (
                         <TeacherReportCard
-                            key={`${report.QuizId}-${report.GroupId}`}
+                            key={`${report.QuizId}-${report.OfflineReportId}-${report.GroupId}`}
                             report={report}
                             //onViewDetail={() => handleViewDetail(report.QuizId, report.GroupId)}
                             /*onViewDetail={() =>
