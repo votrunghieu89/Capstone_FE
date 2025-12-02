@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import AlertModal from "../../../components/common/AlertModal";
 import { z } from "zod";
 import {
     Plus,
@@ -72,7 +73,19 @@ export default function CreateQuizAI() {
     // ⬅️ KEEP: State cho file dữ liệu AI (formFile)
     const [fileToUpload, setFileToUpload] = useState<File | null>(null);
     const [filePreview, setFilePreview] = useState<string | null>(null); 
+    const [alertOpen, setAlertOpen] = useState(false);
+    const [alertMsg, setAlertMsg] = useState("");
+    const [alertIsError, setAlertIsError] = useState(false);
 
+    // ✅ HÀM ĐÓNG ALERT VÀ CHUYỂN HƯỚNG
+    const handleCloseAlert = () => {
+        setAlertOpen(false);
+        setAlertIsError(false);
+        // Chuyển hướng về folders nếu không phải là lỗi
+        if (!alertIsError) {
+            navigate("/teacher/folders"); 
+        }
+    };
     // Helper functions cho File Dữ liệu AI (formFile)
     const setFileInputAndPreview = (file: File | null) => {
         setFileToUpload(file);
@@ -137,7 +150,7 @@ export default function CreateQuizAI() {
             }
         };
         fetchData();
-    }, []); // Dependency rỗng, chạy 1 lần khi component mount
+    }, []);
     
     // ⬅️ NEW: Helper functions cho Ảnh Thumbnail (AvatarURL)
     const renderFolderOptions = () => {
@@ -233,7 +246,6 @@ export default function CreateQuizAI() {
     return avatarURL;
   } catch (err: any) {
     console.error("ERROR uploading thumbnail:", err);
-    // Nếu muốn, có thể ném lỗi để upstream xử lý; ở đây trả "" và caller sẽ dùng default
     return data.avatarUrl || "";
   }
 };
@@ -330,8 +342,9 @@ export default function CreateQuizAI() {
             )) as any;
 
             if (response.status === 200 || response.status === 201 || response.message === "Quiz created successfully.") {
-                alert(`✅ Tạo quiz thành công! Quiz đã được lưu vào thư viện.`);
-                navigate("/teacher/folders"); 
+               setAlertIsError(false);
+                setAlertMsg("🎉 Tạo quiz bằng AI thành công!");
+                setAlertOpen(true);
             } else {
                 const errorMessage = response.message || response.data?.message || "Lỗi không xác định khi tạo quiz bằng AI.";
                 throw new Error(errorMessage);
@@ -371,10 +384,6 @@ export default function CreateQuizAI() {
                 avatarURL = uploadResponse.imageUrl;
             }
 
-            // 2. Build final payload (Sử dụng API tạo quiz thủ công, nếu bạn muốn tách logic này)
-            // Tuy nhiên, vì form này là AI, ta sẽ KHÔNG BAO GIỜ dùng nút Lưu Quiz mà không qua AI.
-            // Để giữ an toàn, ta sẽ giả định nút Lưu Quiz (nếu hiển thị) là để cập nhật Quiz sau khi AI tạo.
-            // Nhưng do API AI đã tự động lưu, ta sẽ dùng nút này để báo lỗi.
             alert("Lỗi: Quiz đã được lưu tự động sau khi tạo bằng AI. Không cần nhấn nút này.");
         } catch (error) {
              alert("Lỗi khi xử lý lưu. Hãy thử lại.");
@@ -585,7 +594,11 @@ export default function CreateQuizAI() {
                     </form>
                 </div>
             </div>
-
+              <AlertModal
+                open={alertOpen}
+                message={alertMsg}
+                onClose={handleCloseAlert}
+            />
             <Footer />
         </div>
     );

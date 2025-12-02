@@ -127,9 +127,9 @@ const fetchTeacherReports = async (
 };
 
 // Hook
-export const useGetTeacherReports = (teacherId: number, type: QuizReportType) => {
+export const useGetTeacherReports = (teacherId: number, type: QuizReportType,refreshCounter: number = 0) => {
     return useQuery<TeacherQuizReportFlat[]>({
-        queryKey: ['teacherReports', teacherId, type],
+        queryKey: ['teacherReports', teacherId, type,refreshCounter],
         queryFn: () => fetchTeacherReports(teacherId, type),
         enabled: teacherId > 0,
     });

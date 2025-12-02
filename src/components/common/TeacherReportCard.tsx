@@ -36,6 +36,8 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
         }
     };
 
+        const isOnlineQuiz = (report.Type || "").toLowerCase() === "online";
+const timeLabel = isOnlineQuiz ? "Ngày làm" : "Hết hạn";
     return (
         <div className="p-4 border border-secondary-200 rounded-xl bg-white shadow-md flex items-center justify-between hover:border-primary-400 transition-all">
             <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -75,7 +77,7 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
 
                 {/* Hết hạn */}
                 <div className="text-center">
-                    <p className="text-xs text-secondary-500">Hết hạn</p>
+                    <p className="text-xs text-secondary-500">{timeLabel}</p>
                     <p className="font-bold text-sm text-secondary-700 whitespace-nowrap">
                         {formatDate(expiredTime ?? undefined)}
                     </p>
