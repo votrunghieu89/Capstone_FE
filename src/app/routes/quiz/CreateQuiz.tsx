@@ -389,8 +389,6 @@ export default function CreateQuiz() {
         setAlertIsError(false);
         setAlertMsg("🎉 Tạo quiz thành công!");
         setAlertOpen(true);
-
-       // navigate("/teacher/folders");
       } else {
         console.error("Create quiz bad response:", response);
         throw new Error("Tạo quiz thất bại");

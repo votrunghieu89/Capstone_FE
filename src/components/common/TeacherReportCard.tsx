@@ -11,7 +11,6 @@ interface TeacherReportCardProps {
 }
 
 export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, onViewDetail }) => {
-    
     const [status, setStatus] = useState<string>(report.Status ?? "Pending");
     const [expiredTime, setExpiredTime] = useState<string | null>(report.EndTime);
     const [loading, setLoading] = useState(false);

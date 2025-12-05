@@ -332,7 +332,7 @@ export default function CreateQuizAI() {
             
             console.log("LOG 4: Calling Gemini API with final payload (including AvatarURL)...");
             
-            // 3. GỌI API THỰC TẾ
+            
             const apiEndpoint = "/Gemini/CreateQuizByGemini";
             
             const response = (await apiClient.post(

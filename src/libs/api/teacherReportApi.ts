@@ -17,6 +17,7 @@ interface QuizReportItem {
     totalParticipants: number;
     reportName: string;
     offlineReportId: number;
+    qgId?: number; // optional in BE raw item
 }
 
 interface GroupReport {
@@ -38,53 +39,74 @@ export interface TeacherQuizReportFlat {
     Status: string;
     EndTime: string | null;
     reportName: string;
+    qgId: number; // keep for offline-check
 }
 
-// 🟦 FLATTEN OFFLINE REPORTS (giữ nguyên)
-const flattenReports = (rawData: any[], type: QuizReportType): TeacherQuizReportFlat[] => {
+// call backend check-expired (sends qgId as required by swagger)
+export const checkQuizExpired = async (quizId: number, qgId: number) => {
+    const res = await apiClient.post("/TeacherReport/check-expired", {
+        quizId,
+        qgId
+    });
+    return res;
+};
+const flattenReports = async (rawData: any[], type: QuizReportType): Promise<TeacherQuizReportFlat[]> => {
     if (!Array.isArray(rawData)) return [];
 
-    const flatReports: TeacherQuizReportFlat[] = [];
+    const flatReports: TeacherQuizReportFlat[] = rawData.flatMap((group: GroupReport) =>
+        group.quizzes?.map((quiz) => ({
+            QuizId: quiz.quizzId,
+            OfflineReportId: quiz.offlineReportId,
+            Title: quiz.reportName,
+            GroupName: group.groupName,
+            GroupId: group.groupId,
+            TotalQuestions: quiz.totalQuestions,
+            TotalAttempts: quiz.totalParticipants ?? 0,
+            Type: type,
+            Status: "Pending",              
+            EndTime: quiz.endTime ?? null,
+            reportName: quiz.reportName ?? "",
+            qgId: (quiz as any).qgId,
+        })) ?? []
+    );
 
-    rawData.forEach((group: GroupReport) => {
-        if (group.quizzes) {
-            group.quizzes.forEach(quiz => {
-                flatReports.push({
-                    QuizId: quiz.quizzId,
-                    OfflineReportId: quiz.offlineReportId,
-                    Title: quiz.reportName,
-                    GroupName: group.groupName,
-                    GroupId: group.groupId,
-                    TotalQuestions: quiz.totalQuestions,
-                    TotalAttempts: quiz.totalParticipants ?? 0,
-                    Type: type,
-                    Status: quiz.status ?? "Unknown",
-                    EndTime: quiz.endTime ?? null,
-                    reportName: quiz.reportName ?? "",
-                });
-            });
-        }
-    });
+    // 🔥 Chỉ offline mới check expired
+    const updated = await Promise.all(
+        flatReports.map(async (item) => {
+            if (item.Type === "offline") {
+                try {
+                    const res: any = await checkQuizExpired(item.QuizId, item.qgId);
 
-    return flatReports;
+                    item.Status = res?.isExpired
+                        ? "Completed"
+                        : "Pending";
+                } catch (err) {
+                    console.error("check-expired error", err);
+                }
+            }
+            return item;
+        })
+    );
+
+    return updated; 
 };
 
-// 🟩 MAPPER ONLINE REPORTS (thêm mới)
 const mapOnlineReports = (raw: any[]): TeacherQuizReportFlat[] => {
     if (!Array.isArray(raw)) return [];
 
     return raw.map(item => ({
         QuizId: item.quizId,
-        OfflineReportId: item.onlineReportId, // dùng ID này khi xem detail....
+        OfflineReportId: item.onlineReportId ?? 0, 
         Title: item.reportName ?? "Online Quiz",
         GroupName: "Online Quiz",
         GroupId: 0,
         TotalQuestions: 0,
         TotalAttempts: item.totalParticipants ?? 0,
         Type: "online",
-        Status: "Completed",
+        Status: item.status ?? "Completed",
         EndTime: item.createdAt ?? null,
-        reportName: item.reportName
+        reportName: item.reportName ?? "",
+        qgId: item.qgId ?? 0 
     }));
 };
 
@@ -102,11 +124,11 @@ const fetchTeacherReports = async (
             apiClient.get(`/TeacherReport/offline/quiz-reports/${teacherId}`),
         ]);
 
-        const onlineRaw =  (onlineResponse as any).data;
-        const offlineRaw =  (offlineResponse as any).data;
+        const onlineRaw = (onlineResponse as any).data ?? [];
+        const offlineRaw = (offlineResponse as any).data ?? [];
 
         const online = mapOnlineReports(onlineRaw);
-        const offline = flattenReports(offlineRaw, "offline");
+        const offline = await flattenReports(offlineRaw, "offline");
 
         return [...online, ...offline];
     }
@@ -123,14 +145,17 @@ const fetchTeacherReports = async (
     const response = await apiClient.get(endpoint) as any;
     const rawData = response.data || response;
 
-    return flattenReports(rawData, type);
+    return await flattenReports(rawData, type);
 };
 
 // Hook
-export const useGetTeacherReports = (teacherId: number, type: QuizReportType,refreshCounter: number = 0) => {
+export const useGetTeacherReports = (teacherId: number, type: QuizReportType, refreshCounter: number = 0) => {
     return useQuery<TeacherQuizReportFlat[]>({
-        queryKey: ['teacherReports', teacherId, type,refreshCounter],
+        queryKey: ['teacherReports', teacherId, type, refreshCounter],
         queryFn: () => fetchTeacherReports(teacherId, type),
         enabled: teacherId > 0,
+        staleTime: 0,
+        gcTime: 0,
+        refetchOnWindowFocus: false
     });
 };
