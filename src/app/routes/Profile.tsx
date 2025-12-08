@@ -32,7 +32,14 @@ const studentSchema = z.object({
 
 const teacherSchema = z.object({
   fullName: z.string().min(2, "Họ tên phải có ít nhất 2 ký tự"),
-  phoneNumber: z.string().optional(),
+  phoneNumber: z
+    .string()
+    .min(1, "Số điện thoại không được để trống")
+    .regex(/^[0-9]+$/, "Số điện thoại chỉ được chứa chữ số")
+    .regex(
+      /^0[0-9]{9,10}$/,
+      "Số điện thoại phải bắt đầu bằng 0 và có 10-11 chữ số"
+    ),
   organizationName: z.string().optional(),
   organizationAddress: z.string().optional(),
 });
@@ -303,7 +310,7 @@ export default function Profile() {
                       placeholder="Nhập họ và tên"
                       icon={<User size={16} />}
                       error={errors.fullName?.message}
-                      {...register("fullName")}
+                      {...(register as any)("fullName")}
                     />
                     <Input
                       label="Email"
@@ -316,26 +323,26 @@ export default function Profile() {
                     {isTeacher && (
                       <>
                         <Input
-                          label="Số điện thoại"
+                          label="Số điện thoại *"
                           type="tel"
-                          placeholder="Nhập số điện thoại"
+                          placeholder="Nhập số điện thoại (vd: 0912345678)"
                           icon={<Phone size={16} />}
                           error={(errors as any).phoneNumber?.message}
-                          {...register("phoneNumber")}
+                          {...(register as any)("phoneNumber")}
                         />
                         <Input
                           label="Tên trường/Tổ chức"
                           placeholder="Nhập tên trường hoặc tổ chức"
                           icon={<Building size={16} />}
                           error={(errors as any).organizationName?.message}
-                          {...register("organizationName")}
+                          {...(register as any)("organizationName")}
                         />
                         <Input
                           label="Địa chỉ tổ chức"
                           placeholder="Nhập địa chỉ"
                           icon={<MapPin size={16} />}
                           error={(errors as any).organizationAddress?.message}
-                          {...register("organizationAddress")}
+                          {...(register as any)("organizationAddress")}
                         />
                       </>
                     )}
