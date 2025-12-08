@@ -123,8 +123,9 @@ export default function Login() {
       };
 
       // Initialize with callback
-        google.accounts.id.initialize({
-        client_id: "111414326741-nq9mnuu8a7ft5vfbqgbu860nch4s47r7.apps.googleusercontent.com",
+      google.accounts.id.initialize({
+        client_id:
+          "111414326741-nq9mnuu8a7ft5vfbqgbu860nch4s47r7.apps.googleusercontent.com",
         callback: handleGoogleResponse,
       });
 
@@ -176,6 +177,12 @@ export default function Login() {
       // Lưu token trước để có thể gọi API profile
       storage.setToken(response.accesToken); // Note: BE có typo "accesToken"
       storage.setRefreshToken(response.refreshToken);
+
+      // Import và start token refresh service
+      const { tokenRefreshService } = await import(
+        "../../../libs/tokenRefreshService"
+      );
+      tokenRefreshService.start();
 
       // Lấy tên thật và ảnh từ profile dựa trên role
       let fullName = response.email.split("@")[0]; // Mặc định lấy từ email

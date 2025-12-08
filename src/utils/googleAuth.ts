@@ -59,6 +59,11 @@ export async function handleGoogleAuth(
   // Dispatch event for other components
   window.dispatchEvent(new Event("userUpdated"));
 
+  // Start token refresh service
+  import("../libs/tokenRefreshService").then(({ tokenRefreshService }) => {
+    tokenRefreshService.start();
+  });
+
   return { user, response };
 }
 
