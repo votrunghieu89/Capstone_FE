@@ -5,8 +5,6 @@ import { Button } from "../../../components/common/Button";
 import { Input } from "../../../components/common/Input";
 import { storage } from "../../../libs/storage";
 import { TeacherReportCard } from "../../../components/common/TeacherReportCard"; // 💡 IMPORT CARD MỚI
-
-// 💡 IMPORT HOOK VÀ TYPE MỚI
 import { useGetTeacherReports, TeacherQuizReportFlat } from "../../../libs/api/teacherReportApi"; 
 
 
@@ -15,7 +13,7 @@ export default function TeacherHistory() {
     // Giữ nguyên layout lọc
     const [filterType, setFilterType] = useState<"all" | "online" | "offline">("online");
     const [searchTerm, setSearchTerm] = useState("");
-
+    const [refreshCounter, setRefreshCounter] = useState(0);
     const user = storage.getUser();
     const teacherId = user?.id; 
 
@@ -23,7 +21,7 @@ export default function TeacherHistory() {
         data: reportsData,
         isLoading: reportsLoading,
         error: reportsError,
-    } = useGetTeacherReports(teacherId ?? 0, filterType);
+    } = useGetTeacherReports(teacherId ?? 0, filterType,refreshCounter);
 
     const isLoading = reportsLoading;
     const error = reportsError;
@@ -42,7 +40,13 @@ export default function TeacherHistory() {
         // Chuyển hướng đến trang chi tiết báo cáo, cần truyền cả GroupId/QuizId
         navigate(`/teacher/report/detail?quizId=${quizId}&groupId=${groupId}&type=${filterType}`);
     };
-
+    const handleFilterClick = (type: "online" | "offline") => {
+    if (filterType === type) {
+      setRefreshCounter((prev) => prev + 1);
+    } else {
+      setFilterType(type);
+    }
+  };
     return (
         <div className="w-full">
             {/* ... (Phần Header, Input, Buttons giữ nguyên) ... */}
@@ -56,8 +60,18 @@ export default function TeacherHistory() {
 
             <div className="mb-6 flex space-x-4">
                 
-                <Button variant={filterType === "online" ? "primary" : "outline"} onClick={() => setFilterType("online")}>Quiz Online</Button>
-                <Button variant={filterType === "offline" ? "primary" : "outline"} onClick={() => setFilterType("offline")}>Quiz Offline</Button>
+                <Button
+          variant={filterType === "online" ? "primary" : "outline"}
+          onClick={() => handleFilterClick("online")}
+        >
+          Quiz Online
+        </Button>
+        <Button
+          variant={filterType === "offline" ? "primary" : "outline"}
+          onClick={() => handleFilterClick("offline")}
+        >
+          Quiz Offline
+        </Button>
             </div>
 
 

@@ -177,7 +177,7 @@ export default function Register() {
 
       // Initialize with callback
     google.accounts.id.initialize({
-      client_id: "",
+      client_id: "111414326741-nq9mnuu8a7ft5vfbqgbu860nch4s47r7.apps.googleusercontent.com",
       callback: handleGoogleResponse,
     });
 

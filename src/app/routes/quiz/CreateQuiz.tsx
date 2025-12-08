@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import AlertModal from "../../../components/common/AlertModal";
+
 import { z } from "zod";
 import {
   Plus,
@@ -33,6 +35,7 @@ import { mockAdapter } from "../../../mocks/adapter";
 import { storage } from "../../../libs/storage";
 
 const questionSchema = z.object({
+
   content: z.string().min(5, "Nội dung câu hỏi phải có ít nhất 5 ký tự"),
   questionType: z.enum(["MultipleChoice", "TrueFalse"]),
   timeLimit: z
@@ -116,6 +119,19 @@ export default function CreateQuiz() {
     const file = event.target.files ? event.target.files[0] : null;
     setSelectedFileAndPreview(file);
   };
+  // Alert modal state
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMsg, setAlertMsg] = useState("");
+  const [alertIsError, setAlertIsError] = useState(false);
+
+  const handleCloseAlert = () => {
+    setAlertOpen(false);
+    setAlertIsError(false);
+    // Nếu không phải lỗi -> điều hướng về previousPath
+    if (!alertIsError) {
+      navigate(previousPath);
+    }
+  };
 
   // ✅ HÀM MỚI ĐỂ ĐẶT FILE VÀ TẠO PREVIEW
   const setSelectedFileAndPreview = (file: File | null) => {
@@ -183,10 +199,6 @@ export default function CreateQuiz() {
           (topicsResponse as any).data || (topicsResponse as any);
         const rawFoldersData =
           (foldersResponse as any).data || (foldersResponse as any);
-
-        // ✅ Log dữ liệu thô
-        console.log("⭐ RAW TOPICS DATA:", rawTopicsData);
-        console.log("⭐ RAW FOLDERS DATA:", rawFoldersData);
 
         // 1. Xử lý Topics
         setTopics(
@@ -373,8 +385,10 @@ export default function CreateQuiz() {
     console.log("LOG 5: Quiz là CÔNG KHAI. Vô hiệu hóa cache publicQuizzes.");
     queryClient.invalidateQueries({ queryKey: ['publicQuizzes'],exact:false }); 
   }
-        alert("✅ Tạo quiz thành công!");
-        navigate("/teacher/folders");
+        //alert("✅ Tạo quiz thành công!");
+        setAlertIsError(false);
+        setAlertMsg("🎉 Tạo quiz thành công!");
+        setAlertOpen(true);
       } else {
         console.error("Create quiz bad response:", response);
         throw new Error("Tạo quiz thất bại");
@@ -854,7 +868,11 @@ export default function CreateQuiz() {
           </div>
         </div>
       </Modal>
-
+         <AlertModal
+        open={alertOpen}
+        message={alertMsg}
+        onClose={handleCloseAlert}
+      />
       <Footer />
     </div>
   );
