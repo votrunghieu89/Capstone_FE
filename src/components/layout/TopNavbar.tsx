@@ -178,7 +178,9 @@ export const TopNavbar: React.FC = () => {
     try {
       setIsBulkAction(true);
       await notificationApi.markAllAsRead(accountId);
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setNotifications((prev) =>
+        prev.map((item) => ({ ...item, isRead: true }))
+      );
     } catch (error) {
       console.error("Failed to mark all as read", error);
       toast.error("Không thể đánh dấu tất cả đã đọc");
@@ -208,11 +210,14 @@ export const TopNavbar: React.FC = () => {
     navigate("/");
   };
 
+  // Xác định URL cho logo dựa trên role của user
+  const logoDestination = user?.role === "Admin" ? "/admin" : "/";
+
   return (
     <header className="sticky top-0 z-30 w-full bg-gradient-to-r from-primary-600 via-primary-500 to-accent-500 shadow-lg">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center gap-3">
         {/* Brand */}
-        <Logo size="md" to="/" variant="white" />
+        <Logo size="md" to={logoDestination} variant="white" />
 
         {/* Nav removed as requested */}
 
@@ -299,15 +304,21 @@ export const TopNavbar: React.FC = () => {
                             )}
                           </div>
                           <div className="mt-2 flex items-center justify-between text-xs text-secondary-500">
-                            <span>{formatNotificationTime(notification.createAt)}</span>
+                            <span>
+                              {formatNotificationTime(notification.createAt)}
+                            </span>
                             <button
                               className="text-primary-600 hover:text-primary-700 disabled:opacity-60"
                               onClick={() =>
                                 notification.isRead
-                                  ? handleMarkUnread(notification.notificationId)
+                                  ? handleMarkUnread(
+                                      notification.notificationId
+                                    )
                                   : handleMarkRead(notification.notificationId)
                               }
-                              disabled={actionLoadingId === notification.notificationId}
+                              disabled={
+                                actionLoadingId === notification.notificationId
+                              }
                             >
                               {notification.isRead
                                 ? "Đánh dấu chưa đọc"

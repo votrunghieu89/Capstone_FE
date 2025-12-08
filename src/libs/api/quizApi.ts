@@ -1,16 +1,16 @@
 //quizApi.ts
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../apiClient'; 
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "../apiClient";
 
 export interface PublicQuizItem {
-    quizId: number;
-    title: string;
-    topicName: string;
-    totalQuestion: number;
-    avatarURL: string;
-    description: string;
-    totalParticipants: number; 
-    plays: number; 
+  quizId: number;
+  title: string;
+  topicName: string;
+  totalQuestion: number;
+  avatarURL: string;
+  description: string;
+  totalParticipants: number;
+  plays: number;
 }
 export interface TopicResponse {
   topicId: number;
@@ -22,7 +22,10 @@ const BASE_URL = "http://localhost:5119";
  * @param page The page number to fetch (starting from 1).
  * @param pageSize The number of items per page.
  */
-const fetchPublicQuizzes = async (page: number, pageSize: number): Promise<PublicQuizItem[]> => {
+const fetchPublicQuizzes = async (
+  page: number,
+  pageSize: number
+): Promise<PublicQuizItem[]> => {
   const url = `/Quiz/GetAllQuizzes?page=${page}&pageSize=${pageSize}`;
   const response = await apiClient.get<PublicQuizItem[]>(url);
 
@@ -57,10 +60,7 @@ const fetchPublicQuizzes = async (page: number, pageSize: number): Promise<Publi
  * @param pageSize The number of quizzes per page.
  */
 
-export const useGetPublicQuizzes = (
-  page: number = 1,
-  pageSize: number = 6
-) => {
+export const useGetPublicQuizzes = (page: number = 1, pageSize: number = 6) => {
   return useQuery<PublicQuizItem[], Error>({
     queryKey: ["publicQuizzes", page, pageSize],
     queryFn: async () => {
@@ -76,11 +76,17 @@ export const useGetPublicQuizzes = (
       });
     },
     staleTime: 0,
+    refetchOnMount: "always", // Luôn refetch khi component mount lại
+    refetchOnWindowFocus: false, // Không refetch khi focus window
   });
 };
-export const useFilterByTopic = (topic: number | null, page: number, pageSize: number) => {
+export const useFilterByTopic = (
+  topic: number | null,
+  page: number,
+  pageSize: number
+) => {
   return useQuery({
-    queryKey: ['filterByTopic', topic, page, pageSize],
+    queryKey: ["filterByTopic", topic, page, pageSize],
     queryFn: async () => {
       if (topic === null) return [];
       const res = await apiClient.get(
@@ -89,11 +95,14 @@ export const useFilterByTopic = (topic: number | null, page: number, pageSize: n
       return res;
     },
     enabled: topic !== null,
+    staleTime: 0,
+    refetchOnMount: "always", // Luôn refetch khi component mount lại
+    refetchOnWindowFocus: false, // Không refetch khi focus window
   });
 };
 export const getAllTopic = async () => {
   const res = await apiClient.get("/Topic/getAllTopic");
-  return (res as TopicResponse[]);
+  return res as TopicResponse[];
 };
 
 // Hook useQuery
