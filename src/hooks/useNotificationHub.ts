@@ -77,9 +77,7 @@ export const useNotificationHub = () => {
 
     try {
       await connectionRef.current.stop();
-      console.info("[SignalR] Notification hub disconnected");
     } catch (error) {
-      console.error("[SignalR] Failed to stop notification hub:", error);
     } finally {
       connectionRef.current = null;
       accountRef.current = null;
@@ -91,7 +89,8 @@ export const useNotificationHub = () => {
     const user = storage.getUser();
     const token = storage.getToken();
     const accountId =
-      parseAccountId(user?.accountId) ?? parseAccountId(user?.id ?? user?.userId);
+      parseAccountId(user?.accountId) ??
+      parseAccountId(user?.id ?? user?.userId);
 
     if (!accountId || !token) {
       await stopConnection();
@@ -128,13 +127,7 @@ export const useNotificationHub = () => {
         emitNotificationEvent(safeMessage);
       });
 
-      connection.onclose((error) => {
-        if (error) {
-          console.error("[SignalR] Notification hub closed with error:", error);
-        } else {
-          console.info("[SignalR] Notification hub closed");
-        }
-      });
+      connection.onclose((error) => {});
 
       connection.onreconnected(() => {
         toast.success("Đã kết nối lại thông báo realtime");
@@ -145,19 +138,13 @@ export const useNotificationHub = () => {
         connectionRef.current = connection;
         accountRef.current = accountId;
         hubUrlRef.current = hubUrl;
-        console.info("[SignalR] Notification hub connected via", hubUrl);
         return;
       } catch (error) {
         lastError = error;
-        console.warn(
-          `[SignalR] Failed to connect via ${hubUrl}, trying next candidate`,
-          error
-        );
         await connection.stop().catch(() => {});
       }
     }
 
-    console.error("[SignalR] Failed to connect notification hub:", lastError);
     toast.error("Không thể kết nối thông báo realtime");
   }, [stopConnection, hubCandidates]);
 
@@ -184,4 +171,3 @@ export const useNotificationHub = () => {
     };
   }, [setupConnection, stopConnection]);
 };
-

@@ -135,18 +135,11 @@ export default function Register() {
       }
 
       const selectedRole = watch("role");
-      console.log("Initializing Google Sign-In for registration...");
-      console.log("Selected role:", selectedRole);
-      console.log("Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
       // Use Google Sign-In with popup
       const handleGoogleResponse = async (response: any) => {
         try {
           const idToken = response.credential;
-          console.log("Google ID Token received");
-          console.log("Token length:", idToken?.length);
-          console.log("Token preview:", idToken?.substring(0, 50) + "...");
-          console.log("Calling API with role:", selectedRole);
 
           // Register/Login with Google based on selected role
           const { response: authResponse } = await handleGoogleAuth(
@@ -156,12 +149,6 @@ export default function Register() {
           success("✅ Đăng ký/Đăng nhập thành công!");
           setTimeout(() => navigate(getRedirectPath(authResponse.role)), 1000);
         } catch (error: any) {
-          console.error("Google auth error:", error);
-          console.error("Error details:", {
-            message: error?.response?.data?.message,
-            status: error?.response?.status,
-            data: error?.response?.data,
-          });
 
           const errorMessage =
             error?.response?.data?.message ||
@@ -192,8 +179,6 @@ export default function Register() {
         size: "large",
         width: 250,
       });
-
-      console.log("Triggering Google Sign-In...");
       // Auto-click the button
       setTimeout(() => {
         const googleButton = tempDiv.querySelector(
@@ -204,14 +189,12 @@ export default function Register() {
           // Clean up after a short delay
           setTimeout(() => document.body.removeChild(tempDiv), 1000);
         } else {
-          console.error("Google button not found");
           showError("❌ Không thể khởi tạo Google Sign-In");
           setIsGoogleLoading(false);
           document.body.removeChild(tempDiv);
         }
       }, 100);
     } catch (error: any) {
-      console.error("Google register error:", error);
       showError("❌ Đăng ký Google thất bại: " + (error.message || ""));
       setIsGoogleLoading(false);
     }
@@ -220,16 +203,11 @@ export default function Register() {
   // Log errors khi có thay đổi
   useEffect(() => {
     if (Object.keys(errors).length > 0) {
-      console.log("=== VALIDATION ERRORS ===");
-      console.log(errors);
     }
   }, [errors]);
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
-    console.log("=== FORM SUBMIT STARTED ===");
-    console.log("Form data:", data);
-    console.log("Current role:", data.role);
 
     try {
       if (data.role === "Student") {
@@ -239,10 +217,8 @@ export default function Register() {
           email: data.email,
           passwordHash: data.password,
         };
-        console.log("Sending OTP for Student:", payload);
 
         const response = await authApi.sendOTPStudent(payload);
-        console.log("OTP sent response:", response);
 
         success("✅ Mã OTP đã được gửi đến email của bạn!");
         setRegistrationEmail(data.email);
@@ -251,7 +227,6 @@ export default function Register() {
       } else {
         // Gửi OTP cho Teacher
         if (!data.organizationName || !data.address) {
-          console.error("Missing required teacher fields");
           showError("Giáo viên phải nhập tên trường/tổ chức và địa chỉ");
           setIsLoading(false);
           return;
@@ -264,10 +239,8 @@ export default function Register() {
           organizationName: data.organizationName,
           organizationAddress: data.address,
         };
-        console.log("Sending OTP for Teacher:", payload);
 
         const response = await authApi.sendOTPTeacher(payload);
-        console.log("OTP sent response:", response);
 
         success("✅ Mã OTP đã được gửi đến email của bạn!");
         setRegistrationEmail(data.email);
@@ -275,16 +248,11 @@ export default function Register() {
         setShowOTPModal(true);
       }
     } catch (error: any) {
-      console.error("=== SEND OTP ERROR ===");
-      console.error("Send OTP error:", error);
-      console.error("Error response:", error?.response);
-      console.error("Error data:", error?.response?.data);
       const errorMessage =
         error?.response?.data?.message ||
         "❌ Gửi mã OTP thất bại. Vui lòng thử lại.";
       showError(errorMessage);
     } finally {
-      console.log("=== FORM SUBMIT ENDED ===");
       setIsLoading(false);
     }
   };
@@ -303,14 +271,10 @@ export default function Register() {
       } else {
         response = await authApi.registerTeacher(registrationEmail, otp);
       }
-
-      console.log("Registration completed:", response);
       success("✅ Đăng ký thành công! Đang chuyển tới trang đăng nhập...");
       setShowOTPModal(false);
       setTimeout(() => navigate("/auth/login"), 1500);
     } catch (error: any) {
-      console.error("=== VERIFY OTP ERROR ===");
-      console.error("Verify OTP error:", error);
       const errorMessage =
         error?.response?.data?.message ||
         "❌ Xác thực OTP thất bại. Vui lòng thử lại.";
@@ -469,9 +433,6 @@ export default function Register() {
                   loading={isLoading}
                   disabled={isLoading}
                   onClick={() => {
-                    console.log("Button clicked!");
-                    console.log("Form errors:", errors);
-                    console.log("Is loading:", isLoading);
                   }}
                 >
                   {isLoading ? (

@@ -41,9 +41,6 @@ class ApiClient {
           const token = localStorage.getItem("access_token");
           if (token) {
             config.headers.Authorization = `Bearer ${token}`;
-            console.log("Request with token:", token.substring(0, 20) + "...");
-          } else {
-            console.warn("No token found for request:", config.url);
           }
         }
         return config;
@@ -59,28 +56,10 @@ class ApiClient {
         return response;
       },
       async (error) => {
-        // Log detailed error information
-        if (error.code === "ECONNABORTED") {
-          console.error("Request timeout:", error.config?.url);
-        } else if (error.code === "ERR_NETWORK") {
-          console.error(
-            "Network error - Backend may not be running:",
-            error.config?.url
-          );
-        } else if (error.response) {
-          console.error(
-            "Response error:",
-            error.response.status,
-            error.config?.url
-          );
-        }
-
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-
-          console.log("Got 401, attempting to refresh token...");
 
           try {
             const refreshToken = localStorage.getItem("refresh_token");
@@ -90,8 +69,6 @@ class ApiClient {
               const user = JSON.parse(userStr);
               const accountId = parseInt(user.id);
 
-              console.log("Refreshing token for accountId:", accountId);
-
               const response = await this.client.post("/Auth/accessToken", {
                 accountId,
                 refreshToken,
@@ -100,17 +77,13 @@ class ApiClient {
               const { accessToken } = response.data;
               localStorage.setItem("access_token", accessToken);
 
-              console.log("Token refreshed successfully");
-
               originalRequest.headers.Authorization = `Bearer ${accessToken}`;
               return this.client(originalRequest);
             } else {
-              console.error("No refresh token or user found");
               throw new Error("No refresh token");
             }
           } catch (refreshError) {
             // Refresh failed, clear tokens
-            console.error("Token refresh failed:", refreshError);
             localStorage.removeItem("access_token");
             localStorage.removeItem("refresh_token");
             localStorage.removeItem("user");

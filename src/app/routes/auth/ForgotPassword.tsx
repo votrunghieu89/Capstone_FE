@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,7 +11,7 @@ import { authApi } from "../../../libs/api/authApi";
 import { useToast, ToastContainer } from "../../../components/common/Toast";
 
 const emailSchema = z.object({
-  email: z.string().email("Email không hợp lệ"),
+  email: z.string().email("Email kh�ng h?p l?"),
 });
 
 type EmailForm = z.infer<typeof emailSchema>;
@@ -36,7 +36,7 @@ export default function ForgotPassword() {
   const onSendOTP = async () => {
     const emailValue = getValues("email");
     if (!emailValue) {
-      toast.warning("Vui lòng nhập email");
+      toast.warning("Vui l�ng nh?p email");
       return;
     }
 
@@ -47,7 +47,7 @@ export default function ForgotPassword() {
       setAccountId(response.accountId);
       toast.success(response.message);
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Gửi mã OTP thất bại");
+      toast.error(error?.response?.data?.message || "G?i m� OTP th?t b?i");
     } finally {
       setIsLoading(false);
     }
@@ -55,11 +55,11 @@ export default function ForgotPassword() {
 
   const onVerifyOTP = async () => {
     if (!otp || otp.length < 6) {
-      toast.warning("Vui lòng nhập đầy đủ 6 số mã OTP");
+      toast.warning("Vui l�ng nh?p d?y d? 6 s? m� OTP");
       return;
     }
     if (!email || !accountId) {
-      toast.error("Vui lòng nhập email và gửi OTP trước");
+      toast.error("Vui l�ng nh?p email v� g?i OTP tru?c");
       return;
     }
     setIsLoading(true);
@@ -68,7 +68,7 @@ export default function ForgotPassword() {
       toast.success(response.message);
       navigate("/auth/reset-password", { state: { email, accountId } });
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Mã OTP không hợp lệ");
+      toast.error(error?.response?.data?.message || "M� OTP kh�ng h?p l?");
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +86,6 @@ export default function ForgotPassword() {
             <div
               className="inline-flex items-center justify-center mb-4 cursor-pointer"
               onClick={() => {
-                console.log("Logo clicked - navigating to home");
                 navigate("/");
               }}
             >
@@ -95,9 +94,9 @@ export default function ForgotPassword() {
               </div>
             </div>
             <h1 className="text-3xl font-extrabold text-white mb-2">
-              Quên mật khẩu?
+              Qu�n m?t kh?u?
             </h1>
-            <p className="text-white/90">Nhập email để nhận mã OTP</p>
+            <p className="text-white/90">Nh?p email d? nh?n m� OTP</p>
           </div>
 
           <div className="backdrop-blur-lg bg-white/80 rounded-2xl shadow-2xl border border-white/30">
@@ -112,7 +111,7 @@ export default function ForgotPassword() {
                     <div className="flex-1">
                       <Input
                         type="email"
-                        placeholder="Nhập email của bạn"
+                        placeholder="Nh?p email c?a b?n"
                         icon={<Mail size={16} />}
                         error={errors.email?.message}
                         {...register("email")}
@@ -125,7 +124,7 @@ export default function ForgotPassword() {
                       disabled={isLoading}
                       className="whitespace-nowrap"
                     >
-                      Gửi OTP
+                      G?i OTP
                     </Button>
                   </div>
                 </div>
@@ -133,11 +132,11 @@ export default function ForgotPassword() {
                 {/* OTP field */}
                 <div>
                   <label className="text-sm font-medium text-secondary-700 mb-2 block">
-                    Mã OTP
+                    M� OTP
                   </label>
                   <Input
                     type="text"
-                    placeholder="Nhập mã OTP"
+                    placeholder="Nh?p m� OTP"
                     icon={<KeyRound size={16} />}
                     value={otp}
                     onChange={(e) =>
@@ -154,7 +153,7 @@ export default function ForgotPassword() {
                   loading={isLoading}
                   disabled={isLoading || otp.length < 6}
                 >
-                  {isLoading ? "Đang xác minh..." : "Xác nhận"}
+                  {isLoading ? "�ang x�c minh..." : "X�c nh?n"}
                 </Button>
 
                 {/* Back to login */}
@@ -164,7 +163,7 @@ export default function ForgotPassword() {
                     className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700"
                   >
                     <ArrowLeft className="w-4 h-4 mr-1" />
-                    Quay lại đăng nhập
+                    Quay l?i dang nh?p
                   </Link>
                 </div>
               </form>

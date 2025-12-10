@@ -9,7 +9,6 @@ import { TeacherReportCard } from "../../../components/common/TeacherReportCard"
 // 💡 IMPORT HOOK VÀ TYPE MỚI
 import { useGetTeacherReports, TeacherQuizReportFlat } from "../../../libs/api/teacherReportApi"; 
 
-
 export default function TeacherHistory() {
     const navigate = useNavigate();
     // Giữ nguyên layout lọc
@@ -59,7 +58,6 @@ export default function TeacherHistory() {
                 <Button variant={filterType === "online" ? "primary" : "outline"} onClick={() => setFilterType("online")}>Quiz Online</Button>
                 <Button variant={filterType === "offline" ? "primary" : "outline"} onClick={() => setFilterType("offline")}>Quiz Offline</Button>
             </div>
-
 
             {/* Loading State */}
             {isLoading && (

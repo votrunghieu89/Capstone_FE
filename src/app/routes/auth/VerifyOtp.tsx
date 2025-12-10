@@ -32,7 +32,6 @@ export default function VerifyOtp() {
     setIsLoading(true);
     try {
       // TODO: Call verify OTP API
-      console.log("OTP data:", data);
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -40,7 +39,6 @@ export default function VerifyOtp() {
       // Redirect to reset password
       navigate("/auth/reset");
     } catch (error) {
-      console.error("OTP verification error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -49,9 +47,7 @@ export default function VerifyOtp() {
   const handleResendOtp = async () => {
     try {
       // TODO: Call resend OTP API
-      console.log("Resend OTP");
     } catch (error) {
-      console.error("Resend OTP error:", error);
     }
   };
 

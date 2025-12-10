@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -32,11 +32,6 @@ export default function Login() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
   const { toasts, success, error: showError, removeToast } = useToast();
-
-  // Debug: Log toasts whenever they change
-  useEffect(() => {
-    console.log("📋 Toasts state changed:", toasts);
-  }, [toasts]);
 
   // Debug: Test toast on mount
   // useEffect(() => {
@@ -79,14 +74,10 @@ export default function Login() {
         return;
       }
 
-      console.log("Initializing Google Sign-In...");
-      console.log("Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
-
       // Use Google Sign-In with popup instead of One Tap
       const handleGoogleResponse = async (response: any) => {
         try {
           const idToken = response.credential;
-          console.log("Google ID Token received");
 
           // Try Student first, then Teacher if fails
           try {
@@ -100,7 +91,6 @@ export default function Login() {
               1000
             );
           } catch (studentError: any) {
-            console.log("Student login failed, trying Teacher...");
             const { response: authResponse } = await handleGoogleAuth(
               idToken,
               "Teacher"
@@ -112,7 +102,6 @@ export default function Login() {
             );
           }
         } catch (error: any) {
-          console.error("Google auth error:", error);
           showError(
             error?.response?.data?.message ||
               "❌ Đăng nhập Google thất bại. Vui lòng đăng ký trước."
@@ -141,7 +130,6 @@ export default function Login() {
         width: 250,
       });
 
-      console.log("Triggering Google Sign-In...");
       // Auto-click the button
       setTimeout(() => {
         const googleButton = tempDiv.querySelector(
@@ -152,14 +140,12 @@ export default function Login() {
           // Clean up after a short delay
           setTimeout(() => document.body.removeChild(tempDiv), 1000);
         } else {
-          console.error("Google button not found");
           showError("❌ Không thể khởi tạo Google Sign-In");
           setIsGoogleLoading(false);
           document.body.removeChild(tempDiv);
         }
       }, 100);
     } catch (error: any) {
-      console.error("Google login error:", error);
       showError("❌ Đăng nhập Google thất bại: " + (error.message || ""));
       setIsGoogleLoading(false);
     }
@@ -203,10 +189,6 @@ export default function Login() {
           avatarURL = profileResponse.profile.avatarURL || null;
         }
       } catch (profileError) {
-        console.warn(
-          "Không lấy được profile, dùng tên từ email:",
-          profileError
-        );
         // Giữ fullName và avatarURL mặc định
       }
 
@@ -238,14 +220,6 @@ export default function Login() {
         }
       }, 1000);
     } catch (error: any) {
-      console.log("=================");
-      console.log("LOGIN ERROR CAUGHT");
-      console.log("=================");
-      console.error("Login error:", error);
-      console.error("Error response:", error?.response);
-      console.error("Error data:", error?.response?.data);
-      console.error("Error status:", error?.response?.status);
-
       let errorMessage =
         "❌ Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.";
 
@@ -260,17 +234,8 @@ export default function Login() {
           "❌ Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối.";
       }
 
-      console.log("=== CALLING showError ===");
-      console.log("Error message:", errorMessage);
-      console.log("Current toasts:", toasts);
-
       // Force show error immediately
       showError(errorMessage);
-
-      // Debug after a short delay to see if state updated
-      setTimeout(() => {
-        console.log("After showError (delayed), toasts:", toasts);
-      }, 100);
     } finally {
       setIsLoading(false);
     }
@@ -280,9 +245,9 @@ export default function Login() {
   //   const checkDatabase = async () => {
   //     try {
   //       const result = await authApi.checkDb();
-  //       console.log("DB check result:", result);
+  //
   //     } catch (error) {
-  //       console.error("DB check error:", error);
+  //
   //     }
   //   };
 

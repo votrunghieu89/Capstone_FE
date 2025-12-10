@@ -49,7 +49,6 @@ export default function AdminDashboard() {
         const data = await adminApi.getDashboardStats();
         setStats(data);
       } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
         setError("Không thể tải dữ liệu thống kê");
       } finally {
         setLoading(false);
@@ -74,10 +73,6 @@ export default function AdminDashboard() {
         });
         setAccountMap(map);
       } catch (err) {
-        console.warn(
-          "⚠️ Không thể lấy danh sách accounts để map email. Log sẽ hiển thị AccountId thay vì email:",
-          err
-        );
       }
     };
 
@@ -85,35 +80,19 @@ export default function AdminDashboard() {
       try {
         setLogsLoading(true);
         setLogsError(null);
-        console.log("🔄 Đang fetch audit logs...");
         const logs = await adminApi.getAuditLogs(1, 100); // Lấy 100 log để hiển thị với scroll
-        console.log("✅ Nhận được audit logs:", logs.length, "logs", logs);
         setAuditLogs(logs);
         if (logs.length === 0) {
-          console.warn(
-            "⚠️ BE trả về mảng rỗng hoặc endpoint /api/Audit/audit-logs có thể chưa sẵn sàng"
-          );
         } else {
-          console.log("✅ Đã set auditLogs state với", logs.length, "logs");
         }
       } catch (err: any) {
-        console.error("❌ Error fetching audit logs:", err);
         setLogsError("Không thể tải log hoạt động");
         // Log chi tiết lỗi BE
         if (err.response) {
-          console.error(
-            "⚠️ BE Response Error:",
-            err.response.status,
-            err.response.data
-          );
         } else if (err.code === "ERR_NETWORK") {
-          console.error(
-            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại"
-          );
         }
       } finally {
         setLogsLoading(false);
-        console.log("✅ Đã set logsLoading = false");
       }
     };
 
@@ -134,17 +113,8 @@ export default function AdminDashboard() {
         setQuizChartData(quizData);
         setAccountChartData(accountData);
       } catch (err: any) {
-        console.error("❌ Error fetching chart data:", err);
         if (err.response) {
-          console.error(
-            "⚠️ BE Response Error:",
-            err.response.status,
-            err.response.data
-          );
         } else if (err.code === "ERR_NETWORK") {
-          console.error(
-            "⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint chart không tồn tại"
-          );
         }
       } finally {
         setChartsLoading(false);

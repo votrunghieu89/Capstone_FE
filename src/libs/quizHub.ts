@@ -53,7 +53,6 @@ const builder = new HubConnectionBuilder()
   .withKeepAliveInterval(15_000)
   .configureLogging(LogLevel.Information);
 
-
   return builder.build();
 };
 

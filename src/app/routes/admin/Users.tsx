@@ -90,7 +90,6 @@ export default function AdminUsers() {
           setUsers(convertedUsers);
         }
       } catch (err) {
-        console.error("Error fetching users:", err);
         setError("Không thể tải danh sách người dùng");
         setUsers([]);
         setTotalUsers(0);

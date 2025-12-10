@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,11 +12,11 @@ import { useToast, ToastContainer } from "../../../components/common/Toast";
 
 const passwordSchema = z
   .object({
-    newPassword: z.string().min(6, "Mật khẩu phải có ít nhất 6 ký tự"),
-    confirmPassword: z.string().min(6, "Xác nhận mật khẩu không hợp lệ"),
+    newPassword: z.string().min(6, "M?t kh?u ph?i c� �t nh?t 6 k� t?"),
+    confirmPassword: z.string().min(6, "X�c nh?n m?t kh?u kh�ng h?p l?"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Mật khẩu xác nhận không khớp",
+    message: "M?t kh?u x�c nh?n kh�ng kh?p",
     path: ["confirmPassword"],
   });
 
@@ -55,7 +55,7 @@ export default function ResetPassword() {
       }, 1500);
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message || "Đặt lại mật khẩu thất bại"
+        error?.response?.data?.message || "�?t l?i m?t kh?u th?t b?i"
       );
     } finally {
       setIsLoading(false);
@@ -74,7 +74,6 @@ export default function ResetPassword() {
             <div
               className="inline-flex items-center justify-center mb-4 cursor-pointer"
               onClick={() => {
-                console.log("Logo clicked - navigating to home");
                 navigate("/");
               }}
             >
@@ -83,10 +82,10 @@ export default function ResetPassword() {
               </div>
             </div>
             <h1 className="text-3xl font-extrabold text-white mb-2">
-              Đặt mật khẩu mới
+              �?t m?t kh?u m?i
             </h1>
             <p className="text-white/90">
-              Nhập mật khẩu mới cho tài khoản của bạn
+              Nh?p m?t kh?u m?i cho t�i kho?n c?a b?n
             </p>
           </div>
 
@@ -103,9 +102,9 @@ export default function ResetPassword() {
                 </div>
 
                 <Input
-                  label="Mật khẩu mới"
+                  label="M?t kh?u m?i"
                   type="password"
-                  placeholder="Nhập mật khẩu mới"
+                  placeholder="Nh?p m?t kh?u m?i"
                   icon={<Lock size={16} />}
                   showPasswordToggle
                   error={errors.newPassword?.message}
@@ -113,9 +112,9 @@ export default function ResetPassword() {
                 />
 
                 <Input
-                  label="Xác nhận mật khẩu"
+                  label="X�c nh?n m?t kh?u"
                   type="password"
-                  placeholder="Nhập lại mật khẩu mới"
+                  placeholder="Nh?p l?i m?t kh?u m?i"
                   icon={<Lock size={16} />}
                   showPasswordToggle
                   error={errors.confirmPassword?.message}
@@ -128,7 +127,7 @@ export default function ResetPassword() {
                   loading={isLoading}
                   disabled={isLoading}
                 >
-                  {isLoading ? "Đang đặt lại..." : "Đặt lại mật khẩu"}
+                  {isLoading ? "�ang d?t l?i..." : "�?t l?i m?t kh?u"}
                 </Button>
 
                 <div className="text-center">
@@ -137,7 +136,7 @@ export default function ResetPassword() {
                     className="inline-flex items-center text-sm text-primary-600 hover:text-primary-700"
                   >
                     <ArrowLeft className="w-4 h-4 mr-1" />
-                    Quay lại đăng nhập
+                    Quay l?i dang nh?p
                   </Link>
                 </div>
               </form>

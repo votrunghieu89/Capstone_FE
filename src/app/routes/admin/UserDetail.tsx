@@ -42,7 +42,6 @@ export default function AdminUserDetail() {
           setError("Không tìm thấy người dùng");
         }
       } catch (err) {
-        console.error("Error fetching user detail:", err);
         setError("Không thể tải thông tin người dùng");
       } finally {
         setLoading(false);
@@ -68,7 +67,6 @@ export default function AdminUserDetail() {
       setShowDelete(false);
       navigate("/admin/users");
     } catch (err) {
-      console.error("Error toggling user status:", err);
       alert("Không thể thay đổi trạng thái người dùng này");
     }
   };

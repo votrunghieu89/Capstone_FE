@@ -32,10 +32,6 @@ export default function FavouriteQuizzes() {
   );
 
   // Debug user data
-  console.log("=== Favourites Page ===");
-  console.log("Current User:", currentUser);
-  console.log("Has accountId:", currentUser?.accountId);
-  console.log("Has id:", currentUser?.id);
 
   const didFetchRef = useRef(false);
 
@@ -52,7 +48,6 @@ export default function FavouriteQuizzes() {
         );
         setAllTopics(topicsList);
       } catch (err) {
-        console.error("Error fetching topics:", err);
         // Không set error vì không ảnh hưởng đến việc hiển thị trang
       }
     };
@@ -73,16 +68,7 @@ export default function FavouriteQuizzes() {
           ? parseInt(accountIdRaw)
           : accountIdRaw;
 
-      console.log(
-        "Trying to fetch with accountId:",
-        accountId,
-        "(type:",
-        typeof accountId,
-        ")"
-      );
-
       if (!accountId || isNaN(accountId)) {
-        console.error("No valid accountId found!");
         setError("Vui lòng đăng nhập để xem danh sách yêu thích");
         setIsLoading(false);
         return;
@@ -110,17 +96,8 @@ export default function FavouriteQuizzes() {
             avatarURL: avatarURL,
           };
         });
-
-        console.log("Favourite quizzes data:", fixedData);
-        console.log("Number of quizzes:", fixedData.length);
-        console.log(
-          "Topics:",
-          fixedData.map((q) => q.topicName)
-        );
         setFavouriteQuizzes(fixedData);
       } catch (err: any) {
-        console.error("Error fetching favourite quizzes:", err);
-        console.error("Error details:", err?.response?.data);
 
         let errorMsg = "Không thể tải danh sách quiz yêu thích";
 
@@ -129,9 +106,6 @@ export default function FavouriteQuizzes() {
           // BE null reference error - quiz has null AvatarURL
           errorMsg =
             "⚠️ Có quiz với dữ liệu không hợp lệ. Vui lòng liên hệ quản trị viên để kiểm tra dữ liệu.";
-          console.error(
-            "BE Error: Quiz with null AvatarURL detected. Need to fix data in database."
-          );
         } else if (err?.message) {
           errorMsg = err.message;
         }
@@ -201,7 +175,6 @@ export default function FavouriteQuizzes() {
 
       toast.success("✅ Đã xóa quiz khỏi danh sách yêu thích!");
     } catch (err: any) {
-      console.error("Error removing favourite:", err);
       // Rollback nếu có lỗi
       const errorMsg = err?.message || "Không thể xóa quiz khỏi yêu thích";
       toast.error(errorMsg);

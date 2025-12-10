@@ -71,7 +71,6 @@ export const TopNavbar: React.FC = () => {
       const data = await notificationApi.getLatest(accountId);
       setNotifications(data);
     } catch (error) {
-      console.error("Failed to fetch notifications", error);
       setNotifError("Không thể tải thông báo");
     } finally {
       setIsLoadingNotifications(false);
@@ -147,7 +146,6 @@ export const TopNavbar: React.FC = () => {
         )
       );
     } catch (error) {
-      console.error("Failed to mark notification as read", error);
       toast.error("Không thể đánh dấu đã đọc");
     } finally {
       setActionLoadingId(null);
@@ -166,7 +164,6 @@ export const TopNavbar: React.FC = () => {
         )
       );
     } catch (error) {
-      console.error("Failed to mark notification as unread", error);
       toast.error("Không thể đánh dấu chưa đọc");
     } finally {
       setActionLoadingId(null);
@@ -182,7 +179,6 @@ export const TopNavbar: React.FC = () => {
         prev.map((item) => ({ ...item, isRead: true }))
       );
     } catch (error) {
-      console.error("Failed to mark all as read", error);
       toast.error("Không thể đánh dấu tất cả đã đọc");
     } finally {
       setIsBulkAction(false);
@@ -198,7 +194,6 @@ export const TopNavbar: React.FC = () => {
         prev.map((item) => ({ ...item, isRead: false }))
       );
     } catch (error) {
-      console.error("Failed to mark all as unread", error);
       toast.error("Không thể đánh dấu tất cả chưa đọc");
     } finally {
       setIsBulkAction(false);

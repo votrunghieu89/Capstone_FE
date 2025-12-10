@@ -24,7 +24,6 @@ export default function QuizDetail() {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const createAt = searchParams.get('CreateAt') || '';
-    console.log('Detail Params:', { studentId, quizId, createAt });
     const fetchQuizDetail = async () => {
   try {
     const response: any = await apiClient.get(
@@ -44,7 +43,6 @@ export default function QuizDetail() {
     });
 
   } catch (err) {
-    console.error("Lỗi khi tải chi tiết quiz:", err);
     setError("Không thể tải dữ liệu quiz.");
   } finally {
     setLoading(false);

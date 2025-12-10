@@ -53,7 +53,6 @@ interface Option { id: string; content: string; isCorrect: boolean; }
 interface Question { id: string; content: string; questionType: "MultipleChoice" | "TrueFalse"; timeLimit: number; points: number; options: Option[]; }
 interface AIQuestionResponse { questionContent: string; questionType: "MultipleChoice" | "TrueFalse"; timeLimit: number; score: number; options: { optionContent: string; isCorrect: boolean; }[]; }
 
-
 // --- MAIN COMPONENT ---
 
 export default function CreateQuizAI() {
@@ -131,7 +130,6 @@ export default function CreateQuizAI() {
                         }))
                 );
             } catch (error) {
-                console.error("❌ Lỗi khi tải dữ liệu:", error);
                 setTopics([]);
                 setFolders([]);
             }
@@ -186,12 +184,10 @@ export default function CreateQuizAI() {
   let avatarURL: string = (data.avatarUrl || "").trim();
 
   if (!thumbnailFile) {
-    console.log("LOG: No thumbnail file provided. Using manual URL (if any):", avatarURL);
     return avatarURL;
   }
 
   try {
-    console.log("LOG: Starting thumbnail upload...", thumbnailFile.name);
     const formData = new FormData();
     // giữ key giống bạn dùng ở createQuiz
     formData.append("AvatarURL", thumbnailFile);
@@ -203,7 +199,6 @@ export default function CreateQuizAI() {
     );
 
     // Log toàn bộ response để debug nhanh
-    console.log("LOG: raw uploadResponse =", uploadResponse);
 
     // Thử nhiều vị trí khả dĩ nơi backend có thể trả URL
     const candidates = [
@@ -223,16 +218,13 @@ export default function CreateQuizAI() {
 
     if (found) {
       avatarURL = found;
-      console.log("LOG: Resolved avatarURL from upload response:", avatarURL);
     } else {
       // Nếu không tìm thấy, log rõ để bạn kiểm tra Network tab
-      console.warn("WARN: Could not find avatar URL in upload response. Response logged above.");
       // giữ avatarURL đã có (có thể là manual URL hoặc empty string)
     }
 
     return avatarURL;
   } catch (err: any) {
-    console.error("ERROR uploading thumbnail:", err);
     // Nếu muốn, có thể ném lỗi để upstream xử lý; ở đây trả "" và caller sẽ dùng default
     return data.avatarUrl || "";
   }
@@ -250,7 +242,6 @@ export default function CreateQuizAI() {
     useEffect(() => {
         setValue('questions', questions as any, { shouldValidate: true });
     }, [questions, setValue]);
-
 
     // --- AI GENERATION LOGIC (UPDATED FOR CORRECT API CALL) ---
 
@@ -287,7 +278,6 @@ export default function CreateQuizAI() {
         }
 
         try {
-            console.log("LOG 1: Starting AI Quiz Creation...");
 
             // 1. UPLOAD THUMBNAIL và lấy URL
             const avatarURL = await uploadThumbnail(formData); 
@@ -318,8 +308,6 @@ export default function CreateQuizAI() {
             payloadFormData.append("Score", formData.score.toString());
             payloadFormData.append("Time", formData.time.toString());
             
-            console.log("LOG 4: Calling Gemini API with final payload (including AvatarURL)...");
-            
             // 3. GỌI API THỰC TẾ
             const apiEndpoint = "/Gemini/CreateQuizByGemini";
             
@@ -337,13 +325,11 @@ export default function CreateQuizAI() {
                 throw new Error(errorMessage);
             }
         } catch (error: any) {
-            console.error("❌ Lỗi khi gọi API Gemini:", error);
             alert(`Đã xảy ra lỗi: ${error.message || error.toString()}. Vui lòng thử lại.`);
         } finally {
             setIsAIGenerating(false);
         }
     };
-
 
     // --- FINAL SUBMISSION LOGIC (CHỈ LÀM CHỨC NĂNG LƯU QUIZ) ---
     const onSubmit = async (data: AICreateQuizForm) => {
@@ -483,7 +469,6 @@ export default function CreateQuizAI() {
                                         <span className="ml-2 text-sm text-secondary-600">Send empty value</span>
                                     </div>
                                 </div>
-
 
                                 {/* AI Input Fields */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

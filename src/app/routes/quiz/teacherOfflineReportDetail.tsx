@@ -47,7 +47,6 @@ export default function TeacherOfflineReportDetail() {
 
             // 👉 LẤY QGID CHUẨN TỪ API DETAIL
             const realQgId = summaryRes.qgId;
-            console.log("QG ID thực lấy từ detail:", realQgId);
 
             // 2) CALL STUDENT API
             const studentRes: any = await apiClient.get(
@@ -99,7 +98,6 @@ export default function TeacherOfflineReportDetail() {
             );
 
         } catch (err) {
-            console.error(err);
             setError("Không thể tải dữ liệu báo cáo.");
         } finally {
             setLoading(false);
@@ -108,7 +106,6 @@ export default function TeacherOfflineReportDetail() {
 
     loadData();
 }, [quizId, qgId, groupId]);
-
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "—";
@@ -257,7 +254,6 @@ export default function TeacherOfflineReportDetail() {
                         </Card>
                     </TabsContent>
 
-
                     {/* ============================ */}
                     {/* QUESTIONS TAB */}
                     {/* ============================ */}
@@ -296,7 +292,6 @@ export default function TeacherOfflineReportDetail() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-
 
                 </Tabs>
             </div>

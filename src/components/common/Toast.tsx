@@ -40,18 +40,26 @@ export const Toast: React.FC<ToastProps> = ({
   };
 
   return (
-    <div className={`relative animate-slide-in-right`} style={{ zIndex: 10000 }}>
+    <div
+      className={`relative animate-slide-in-right`}
+      style={{ zIndex: 10000 }}
+    >
       <div
         className={`flex items-center gap-3 px-4 py-3 rounded-lg border-l-4 shadow-2xl backdrop-blur-sm min-w-[300px] max-w-[500px] ${styles[type]}`}
-        style={{ 
+        style={{
           zIndex: 10000,
-          position: 'relative',
-          backgroundColor: type === 'error' ? '#fee2e2' : type === 'success' ? '#d1fae5' : type === 'warning' ? '#fef3c7' : '#dbeafe'
+          position: "relative",
+          backgroundColor:
+            type === "error"
+              ? "#fee2e2"
+              : type === "success"
+              ? "#d1fae5"
+              : type === "warning"
+              ? "#fef3c7"
+              : "#dbeafe",
         }}
       >
-        <div className="flex-shrink-0">
-          {icons[type]}
-        </div>
+        <div className="flex-shrink-0">{icons[type]}</div>
         <p className="font-medium flex-1 break-words">{message}</p>
         <button
           onClick={onClose}
@@ -83,27 +91,27 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({
   }, []);
 
   if (!mounted || toasts.length === 0) return null;
-  
+
   const container = document.body;
-  
+
   return createPortal(
-    <div 
-      className="fixed top-4 right-4 space-y-2 pointer-events-none" 
-      style={{ 
+    <div
+      className="fixed top-4 right-4 space-y-2 pointer-events-none"
+      style={{
         zIndex: 99999,
-        position: 'fixed',
-        top: '1rem',
-        right: '1rem',
-        maxWidth: '500px',
-        width: 'auto'
+        position: "fixed",
+        top: "1rem",
+        right: "1rem",
+        maxWidth: "500px",
+        width: "auto",
       }}
     >
       {toasts.map((toast, index) => (
-        <div 
-          key={toast.id} 
-          style={{ 
+        <div
+          key={toast.id}
+          style={{
             animationDelay: `${index * 100}ms`,
-            zIndex: 99999 + index
+            zIndex: 99999 + index,
           }}
           className="pointer-events-auto"
         >
@@ -125,15 +133,16 @@ export const useToast = () => {
     Array<{ id: string; message: string; type: ToastType }>
   >([]);
 
-  const showToast = React.useCallback((message: string, type: ToastType = "info") => {
-    const id = `${Date.now()}-${Math.random()}`;
-    console.log("🔔 showToast called:", { id, message, type });
-    setToasts((prev) => {
-      const newToasts = [...prev, { id, message, type }];
-      console.log("🔔 New toasts array:", newToasts);
-      return newToasts;
-    });
-  }, []);
+  const showToast = React.useCallback(
+    (message: string, type: ToastType = "info") => {
+      const id = `${Date.now()}-${Math.random()}`;
+      setToasts((prev) => {
+        const newToasts = [...prev, { id, message, type }];
+        return newToasts;
+      });
+    },
+    []
+  );
 
   const removeToast = React.useCallback((id: string) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -143,9 +152,21 @@ export const useToast = () => {
     toasts,
     showToast,
     removeToast,
-    success: React.useCallback((message: string) => showToast(message, "success"), [showToast]),
-    error: React.useCallback((message: string) => showToast(message, "error"), [showToast]),
-    info: React.useCallback((message: string) => showToast(message, "info"), [showToast]),
-    warning: React.useCallback((message: string) => showToast(message, "warning"), [showToast]),
+    success: React.useCallback(
+      (message: string) => showToast(message, "success"),
+      [showToast]
+    ),
+    error: React.useCallback(
+      (message: string) => showToast(message, "error"),
+      [showToast]
+    ),
+    info: React.useCallback(
+      (message: string) => showToast(message, "info"),
+      [showToast]
+    ),
+    warning: React.useCallback(
+      (message: string) => showToast(message, "warning"),
+      [showToast]
+    ),
   };
 };

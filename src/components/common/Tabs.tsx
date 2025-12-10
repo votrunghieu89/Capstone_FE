@@ -19,7 +19,6 @@ const useTabsContext = () => {
   return context;
 };
 
-
 // === 2. INTERFACES ===
 interface TabsProps {
   value: string; // Giá trị đang được chọn (active tab)
@@ -34,7 +33,6 @@ interface TabContentProps {
   children: React.ReactNode;
 }
 
-
 // === 3. TABS CONTAINER (Provider) ===
 export function Tabs({ children, value, onValueChange, className }: TabsProps) {
   return (
@@ -44,7 +42,6 @@ export function Tabs({ children, value, onValueChange, className }: TabsProps) {
   );
 }
 
-
 // === 4. TABS LIST (Danh sách các nút Trigger) ===
 export function TabsList({ children, className }: { children: React.ReactNode, className?: string }) {
   return (
@@ -53,7 +50,6 @@ export function TabsList({ children, className }: { children: React.ReactNode, c
     </div>
   );
 }
-
 
 // === 5. TABS TRIGGER (Nút bấm) ===
 // 🛑 ĐÃ SỬA LỖI TS(2741) VÌ KHÔNG CẦN TRUYỀN onClick RỜI NỮA 🛑

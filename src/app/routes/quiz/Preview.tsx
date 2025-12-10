@@ -54,8 +54,6 @@ export default function QuizPreview() {
   const isTeacher = currentUser?.role === "Teacher";
 
   // Debug user data
-  console.log("Current User Data:", currentUser);
-  console.log("Account ID:", currentUser?.accountId || currentUser?.id);
 
   // State for quiz data
   const [quiz, setQuiz] = useState<QuizDetailHP | null>(null);
@@ -71,11 +69,8 @@ export default function QuizPreview() {
   // Fetch quiz details from API
   useEffect(() => {
     const fetchQuizDetail = async () => {
-      console.log("=== Fetching quiz detail ===");
-      console.log("QuizId from URL:", quizId);
 
       if (!quizId) {
-        console.error("No quizId provided");
         setError("Không tìm thấy ID quiz");
         setIsLoading(false);
         return;
@@ -84,12 +79,8 @@ export default function QuizPreview() {
       try {
         setIsLoading(true);
         setError(null);
-
-        console.log("Calling API for quizId:", quizId);
         // Fetch quiz detail first
         const data = await quizService.getQuizDetailHP(Number(quizId));
-        console.log("Quiz data received:", data);
-        console.log("Avatar URL:", data?.avatarURL);
 
         // Fix duplicate base URL issue
         if (data?.avatarURL) {
@@ -100,7 +91,6 @@ export default function QuizPreview() {
             /^(https?:\/\/[^/]+)\/https?:\/\/[^/]+/,
             "$1"
           );
-          console.log("Fixed Avatar URL:", data.avatarURL);
         }
 
         setQuiz(data);
@@ -113,24 +103,9 @@ export default function QuizPreview() {
             const quizDetail = await quizService.getQuizDetailTeacher(
               data.quizId
             );
-            console.log("=== QUIZ DETAIL WITH QUESTIONS ===", quizDetail);
             if (quizDetail && quizDetail.questions) {
-              console.log(
-                "Questions from getQuizDetailTeacher:",
-                quizDetail.questions
-              );
               quizDetail.questions.forEach((q, qIdx) => {
-                console.log(
-                  `Question ${qIdx + 1} (${q.questionId}):`,
-                  q.questionContent
-                );
                 q.options.forEach((opt, optIdx) => {
-                  console.log(`  Option ${optIdx + 1} (${opt.optionId}):`, {
-                    content: opt.optionContent,
-                    isCorrect: opt.isCorrect,
-                    isCorrectType: typeof opt.isCorrect,
-                    rawOption: opt,
-                  });
                 });
               });
               setQuestions(quizDetail.questions);
@@ -142,7 +117,6 @@ export default function QuizPreview() {
               setQuestions(questionsData);
             }
           } catch (err) {
-            console.error("Error fetching questions:", err);
             // Don't show error, just leave questions empty
           } finally {
             setIsLoadingQuestions(false);
@@ -164,16 +138,11 @@ export default function QuizPreview() {
             );
             setIsFav(isFavourite);
           } catch (err) {
-            console.error("Error checking favourite status:", err);
             // Don't show error for favourite check, just set to false
             setIsFav(false);
           }
         }
       } catch (err: any) {
-        console.error("=== Error fetching quiz detail ===");
-        console.error("Error object:", err);
-        console.error("Error code:", err?.code);
-        console.error("Error response:", err?.response);
 
         let errorMsg = "Không thể tải thông tin quiz";
 
@@ -193,7 +162,6 @@ export default function QuizPreview() {
         setError(errorMsg);
         toast.error(errorMsg);
       } finally {
-        console.log("=== Loading complete, isLoading set to false ===");
         setIsLoading(false);
       }
     };
@@ -207,30 +175,17 @@ export default function QuizPreview() {
     const accountId =
       typeof accountIdRaw === "string" ? parseInt(accountIdRaw) : accountIdRaw;
 
-    console.log("toggleFav called", {
-      hasQuiz: !!quiz,
-      currentUser: currentUser,
-      accountIdRaw: accountIdRaw,
-      accountId: accountId,
-      accountIdType: typeof accountId,
-      isFavLoading,
-      isFav,
-    });
-
     if (!quiz) {
-      console.error("No quiz data");
       toast.error("Chưa có thông tin quiz");
       return;
     }
 
     if (!accountId || isNaN(accountId)) {
-      console.error("Not logged in - no valid account ID found");
       toast.error("Vui lòng đăng nhập để sử dụng tính năng này");
       return;
     }
 
     if (isFavLoading) {
-      console.log("Already loading...");
       return;
     }
 
@@ -239,7 +194,6 @@ export default function QuizPreview() {
 
       if (isFav) {
         // Remove from favourites using new BE API
-        console.log("Removing from favourites:", quiz.quizId, accountId);
         await favouriteService.removeFavouriteQuizInDetail(
           quiz.quizId,
           accountId
@@ -248,17 +202,14 @@ export default function QuizPreview() {
         toast.success("✅ Đã xóa khỏi danh sách yêu thích!");
       } else {
         // Add to favourites
-        console.log("Adding to favourites:", accountId, quiz.quizId);
         const result = await favouriteService.addFavouriteQuiz(
           accountId,
           quiz.quizId
         );
-        console.log("Add favourite result:", result);
         setIsFav(true);
         toast.success("✅ Đã thêm vào danh sách yêu thích!");
       }
     } catch (err: any) {
-      console.error("Error toggling favourite:", err);
       const errorMsg = err?.message || "Không thể thực hiện thao tác";
       toast.error(errorMsg);
     } finally {
@@ -383,7 +334,6 @@ export default function QuizPreview() {
                 alt={quiz.title}
                 className="w-full h-full object-cover opacity-80"
                 onError={(e) => {
-                  console.error("Image failed to load:", quiz.avatarURL);
                   // Hide broken image and show fallback
                   e.currentTarget.style.display = "none";
                   const parent = e.currentTarget.parentElement;
@@ -428,10 +378,6 @@ export default function QuizPreview() {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log("Favourite button clicked!", {
-                    isFav,
-                    isFavLoading,
-                  });
                   toggleFav();
                 }}
                 disabled={isFavLoading}
@@ -646,23 +592,6 @@ export default function QuizPreview() {
                                   }
 
                                   // Debug log for each option - ALWAYS log to see what we're getting
-                                  console.log(
-                                    `[DEBUG] Question ${index + 1}, Option ${
-                                      optIndex + 1
-                                    } (${option.optionId}):`,
-                                    {
-                                      content: option.optionContent,
-                                      "option.isCorrect": option.isCorrect,
-                                      "rawOption.isCorrect":
-                                        rawOption.isCorrect,
-                                      "rawOption.IsCorrect":
-                                        rawOption.IsCorrect,
-                                      isCorrectValue: isCorrectValue,
-                                      isCorrectValueType: typeof isCorrectValue,
-                                      isCorrectFinal: isCorrect,
-                                      fullRawOption: JSON.stringify(rawOption),
-                                    }
-                                  );
 
                                   return (
                                     <div

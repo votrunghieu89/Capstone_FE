@@ -109,7 +109,6 @@ export default function TeacherClasses() {
         const id = payload.AccountId || payload.TeacherId || payload.nameid;
         if (id) return parseInt(id);
       } catch (error) {
-        console.error("Error decoding token:", error);
       }
     }
     return 0;
@@ -124,7 +123,6 @@ export default function TeacherClasses() {
       const data = await folderService.getAllFolders(teacherId);
       setFolders(data);
     } catch (error: any) {
-      console.error("Error loading folders:", error);
       toast.error("Không thể tải danh sách thư mục");
     } finally {
       setLoadingFolders(false);
@@ -151,11 +149,6 @@ export default function TeacherClasses() {
                 ? detail.totalQuestions
                 : detail?.questions?.length ?? 0;
           } catch (error) {
-            console.warn(
-              "Không thể lấy chi tiết quiz, fallback dùng số có sẵn",
-              quiz.quizzId,
-              error
-            );
             totalQuestion =
               quiz.totalQuestion ??
               quiz.totalQuestions ??
@@ -172,7 +165,6 @@ export default function TeacherClasses() {
 
       setQuizzesInFolder(enrichedQuizzes as QuizInFolder[]);
     } catch (error: any) {
-      console.error("Error loading quizzes:", error);
       toast.error("Không thể tải danh sách quiz");
     } finally {
       setLoadingQuizzes(false);
@@ -182,20 +174,15 @@ export default function TeacherClasses() {
   const fetchGroups = async () => {
     const teacherId = getTeacherId();
     if (teacherId === 0) {
-      console.warn("Teacher ID is 0, skipping fetch");
       return;
     }
 
     // Check if token exists
     const token = localStorage.getItem("access_token");
     if (!token) {
-      console.error("No access token found");
       toast.error("Vui lòng đăng nhập lại");
       return;
     }
-
-    console.log("Fetching groups for teacher:", teacherId);
-    console.log("Token exists:", !!token);
 
     try {
       setLoading(true);
@@ -219,10 +206,6 @@ export default function TeacherClasses() {
               groupDescription: detail.groupDescription,
             };
           } catch (error) {
-            console.error(
-              `Error fetching details for group ${classItem.groupId}:`,
-              error
-            );
             return {
               ...classItem,
               studentCount: 0,
@@ -234,8 +217,6 @@ export default function TeacherClasses() {
 
       setClasses(classesWithDetails);
     } catch (error: any) {
-      console.error("Error fetching groups:", error);
-      console.error("Error response:", error.response);
 
       if (error.response?.status === 401) {
         toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại");
@@ -324,7 +305,6 @@ export default function TeacherClasses() {
         return [classItem, ...filtered].slice(0, 5); // Keep only 5 most recent
       });
     } catch (error) {
-      console.error("Error fetching class detail:", error);
       toast.error("Không thể tải chi tiết lớp");
     }
   };
@@ -540,7 +520,6 @@ export default function TeacherClasses() {
       try {
         setRecentClasses(JSON.parse(savedRecent));
       } catch (error) {
-        console.error("Error loading recent classes:", error);
       }
     }
   }, []);
@@ -972,7 +951,6 @@ export default function TeacherClasses() {
                                         toast.error(
                                           "Không tìm thấy ID của quiz"
                                         );
-                                        console.error("Quiz data:", quiz);
                                       }
                                     }}
                                   >
@@ -1042,12 +1020,6 @@ export default function TeacherClasses() {
                                         if (!quizId || !classId) {
                                           toast.error(
                                             "Không tìm thấy ID của quiz hoặc lớp học"
-                                          );
-                                          console.error(
-                                            "Quiz:",
-                                            quiz,
-                                            "Class:",
-                                            selectedClass
                                           );
                                           return;
                                         }

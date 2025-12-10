@@ -97,7 +97,6 @@ export default function TeacherOnlineReportDetail() {
                     }))
                 );
             } catch (err) {
-                console.error(err);
                 setError("Không thể tải dữ liệu báo cáo.");
             } finally {
                 setLoading(false);
