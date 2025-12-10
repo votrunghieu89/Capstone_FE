@@ -98,7 +98,6 @@ export default function FavouriteQuizzes() {
         });
         setFavouriteQuizzes(fixedData);
       } catch (err: any) {
-
         let errorMsg = "Không thể tải danh sách quiz yêu thích";
 
         // Handle specific BE errors
@@ -111,7 +110,7 @@ export default function FavouriteQuizzes() {
         }
 
         setError(errorMsg);
-        toast.error(errorMsg, { duration: 5000 });
+        toast.error(errorMsg);
 
         // Set empty array on error so UI can still render
         setFavouriteQuizzes([]);
