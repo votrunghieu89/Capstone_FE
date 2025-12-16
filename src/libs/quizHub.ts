@@ -28,10 +28,10 @@ export const buildQuizHubCandidates = (): string[] => {
   if (fallback) candidates.add(fallback);
 
   [
-    "https://localhost:7126",
-    "http://localhost:7126",
-    "https://localhost:5119",
-    "http://localhost:5119",
+    "https://localhost:8080",
+    "http://localhost:8080",
+    "https://localhost:8080",
+    "http://localhost:8080",
   ].forEach((url) => candidates.add(url));
 
   return Array.from(candidates);
