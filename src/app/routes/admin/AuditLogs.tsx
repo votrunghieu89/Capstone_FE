@@ -33,7 +33,6 @@ export default function AdminAuditLogs() {
         });
         setAccountMap(map);
       } catch (err) {
-        console.warn("⚠️ Không thể lấy danh sách accounts để map email:", err);
       }
     };
 
@@ -45,12 +44,9 @@ export default function AdminAuditLogs() {
         setAuditLogs(logs);
         setTotalRecords(logs.length); // Tạm thời dùng length, BE chưa trả về totalRecords
       } catch (err: any) {
-        console.error("Error fetching audit logs:", err);
         setError("Không thể tải log hoạt động");
         if (err.response) {
-          console.error("⚠️ BE Response Error:", err.response.status, err.response.data);
         } else if (err.code === "ERR_NETWORK") {
-          console.error("⚠️ BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại");
         }
       } finally {
         setLoading(false);

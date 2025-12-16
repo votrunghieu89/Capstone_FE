@@ -76,9 +76,6 @@ export default function StudentHistory() {
       {!isLoading && !error && filteredResults.length > 0 && (
         <div className="space-y-4">
           {filteredResults.map((result) => {
-        console.log("Item nè:", result);
-        console.log("Field keys:", Object.keys(result));
-console.log("result.createAt:", result.creatAt);
 
   return (
     <HistoryResultCard

@@ -179,12 +179,10 @@ export default function CreateQuiz() {
   useEffect(() => {
     const fetchData = async () => {
       const user = storage.getUser();
-      console.log("STORAGE USER OBJECT:", user);
       const currentTeacherId = user?.id;
 
       // 2. Kiểm tra ID
       if (!currentTeacherId) {
-        console.error("Teacher ID not found. Cannot fetch setup data.");
         return;
       }
       try {
@@ -200,6 +198,11 @@ export default function CreateQuiz() {
         const rawFoldersData =
           (foldersResponse as any).data || (foldersResponse as any);
 
+<<<<<<< HEAD
+=======
+        // ✅ Log dữ liệu thô
+
+>>>>>>> origin/Sang2
         // 1. Xử lý Topics
         setTopics(
           // Ép kiểu array an toàn trước khi map
@@ -226,7 +229,6 @@ export default function CreateQuiz() {
         );
         setFolders(folderTree);
       } catch (error) {
-        console.error("❌ Lỗi khi tải dữ liệu:", error);
         setTopics([]);
         setFolders([]);
       }
@@ -323,14 +325,12 @@ export default function CreateQuiz() {
   };
   const onSubmit = async (data: QuizForm) => {
     setIsLoading(true);
-    console.log("LOG 1: onSubmit started. Form data:", data);
     try {
       // 1. Lấy Teacher ID thật cho Submission
       const user = storage.getUser();
       const teacherId = user?.id;
 
       if (!teacherId) {
-        console.log("LOG 2: Error - Teacher ID is missing.");
         throw new Error(
           "Thông tin giáo viên không hợp lệ. Vui lòng đăng nhập lại."
         );
@@ -348,7 +348,6 @@ export default function CreateQuiz() {
         { headers: { "Content-Type": "multipart/form-data" } }
       )) as any;
       avatarURL = uploadResponse.imageUrl;
-      console.log("LOG 3: File uploaded. URL:", avatarURL);
       // 3. Build payload
       const payload = {
         TeacherId: parseInt(teacherId, 10),
@@ -372,8 +371,6 @@ export default function CreateQuiz() {
         })),
       };
       // 4. Gọi API tạo quiz
-      console.log("LOG 4: Attempting to create quiz...");
-      console.log("📤 Payload tạo quiz:", payload);
       const response = (await apiClient.post(
         "/Quiz/createQuiz",
         payload
@@ -382,7 +379,6 @@ export default function CreateQuiz() {
       if (response.status === 200 || response.status === 201 || response) {
 
   if (!data.isPrivate) {
-    console.log("LOG 5: Quiz là CÔNG KHAI. Vô hiệu hóa cache publicQuizzes.");
     queryClient.invalidateQueries({ queryKey: ['publicQuizzes'],exact:false }); 
   }
         //alert("✅ Tạo quiz thành công!");
@@ -390,11 +386,9 @@ export default function CreateQuiz() {
         setAlertMsg("🎉 Tạo quiz thành công!");
         setAlertOpen(true);
       } else {
-        console.error("Create quiz bad response:", response);
         throw new Error("Tạo quiz thất bại");
       }
     } catch (error) {
-      console.error("❌ Lỗi khi tạo quiz:", error);
       alert("Đã xảy ra lỗi khi tạo quiz. Vui lòng thử lại.");
     } finally {
       setIsLoading(false);

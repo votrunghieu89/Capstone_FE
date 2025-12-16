@@ -47,7 +47,6 @@ const QuestionCount: React.FC<{ quizId: number; fallback: number }> = ({
           setActualCount(detail.totalQuestions);
         }
       } catch (error) {
-        console.error("Error fetching question count:", error);
         // Giữ nguyên fallback nếu lỗi
       } finally {
         setLoading(false);
@@ -111,7 +110,6 @@ export default function TeacherFolders() {
           return parseInt(id.toString());
         }
       } catch (error) {
-        console.error("Error parsing user from localStorage:", error);
       }
     }
 
@@ -123,11 +121,9 @@ export default function TeacherFolders() {
         const payload = JSON.parse(atob(token.split(".")[1]));
         const id = payload.nameid || payload.sub || payload.id;
         if (id) {
-          console.log("Got teacher ID from token:", id);
           return parseInt(id);
         }
       } catch (error) {
-        console.error("Error decoding token:", error);
       }
     }
 
@@ -146,7 +142,6 @@ export default function TeacherFolders() {
       const data = await folderService.getAllFolders(teacherId);
       setFolders(data);
     } catch (error: any) {
-      console.error("Error fetching folders:", error);
       toast.error(
         error.response?.data?.message || "Không thể tải danh sách thư mục"
       );
@@ -171,7 +166,6 @@ export default function TeacherFolders() {
       );
       setQuizzes(sorted);
     } catch (error: any) {
-      console.error("Error fetching folder detail:", error);
       toast.error(
         error.response?.data?.message || "Không thể tải chi tiết thư mục"
       );
@@ -334,11 +328,6 @@ export default function TeacherFolders() {
         setLoading(true);
         const teacherId = getTeacherId();
 
-        console.log("=== CREATE FOLDER DEBUG ===");
-        console.log("Teacher ID:", teacherId);
-        console.log("Folder Name:", newFolderName);
-        console.log("Parent Folder ID:", parentFolderForNew);
-
         if (teacherId === 0) {
           toast.error("Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.");
           setTimeout(() => navigate("/auth/login"), 1500);
@@ -350,7 +339,6 @@ export default function TeacherFolders() {
           folderName: newFolderName,
           parentFolderID: parentFolderForNew,
         };
-        console.log("API Payload:", payload);
 
         await folderService.createFolder(payload);
 
@@ -362,8 +350,6 @@ export default function TeacherFolders() {
         // Refresh folders list
         await fetchAllFolders();
       } catch (error: any) {
-        console.error("Error creating folder:", error);
-        console.error("Error response:", error.response?.data);
         toast.error(error.response?.data?.message || "Không thể tạo thư mục");
       } finally {
         setLoading(false);
@@ -397,7 +383,6 @@ export default function TeacherFolders() {
         // Refresh folders list
         await fetchAllFolders();
       } catch (error: any) {
-        console.error("Error updating folder:", error);
         toast.error(
           error.response?.data?.message || "Không thể cập nhật thư mục"
         );
@@ -442,8 +427,6 @@ export default function TeacherFolders() {
         // Refresh folders list
         await fetchAllFolders();
       } catch (error: any) {
-        console.error("Error deleting folder:", error);
-        console.error("Error response:", error.response?.data);
 
         // Show specific error message from BE
         let errorMessage = "Không thể xóa thư mục";
@@ -516,7 +499,6 @@ export default function TeacherFolders() {
           await fetchFolderDetail(selectedFolder);
         }
       } catch (error: any) {
-        console.error("Error moving quiz:", error);
         const errorMessage =
           error.response?.data?.message || "Không thể di chuyển quiz";
         toast.error(errorMessage);
@@ -541,7 +523,6 @@ export default function TeacherFolders() {
           await fetchFolderDetail(selectedFolder);
         }
       } catch (error: any) {
-        console.error("Error deleting quiz:", error);
         const errorMessage =
           error.response?.data?.message || "Không thể xóa quiz";
         toast.error(errorMessage);

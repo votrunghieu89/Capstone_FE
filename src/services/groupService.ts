@@ -93,7 +93,6 @@ class GroupService {
     const response = await apiClient.get<AllGroupDTO[]>(
       `${this.baseUrl}/GetGroupByTeacherId/${teacherId}`
     );
-    console.log("API Response for getGroupsByTeacherId:", response); // Debug log
     return response;
   }
 

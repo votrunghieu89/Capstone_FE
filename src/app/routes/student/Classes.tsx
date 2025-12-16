@@ -64,9 +64,7 @@ export default function StudentClasses() {
         const payload = JSON.parse(atob(token.split(".")[1]));
         const id = payload.AccountId || payload.StudentId || payload.nameid;
         if (id) return parseInt(id);
-      } catch (error) {
-        console.error("Error parsing token:", error);
-      }
+      } catch (error) {}
     }
     return 0;
   };
@@ -124,11 +122,6 @@ export default function StudentClasses() {
               },
             ] as const;
           }
-
-          console.error(
-            `Không thể lấy số lần làm của quiz ${targetQuizId}:`,
-            error
-          );
           return null;
         }
       })
@@ -159,7 +152,6 @@ export default function StudentClasses() {
       setClasses(data);
     } catch (error: any) {
       toast.error("Không thể tải danh sách lớp");
-      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -183,11 +175,6 @@ export default function StudentClasses() {
       setDetailQuizPage(1);
       await fetchQuizAttempts(quizzes);
     } catch (error: any) {
-      console.warn(
-        "Cannot fetch class detail, showing basic info:",
-        error.message
-      );
-
       // Silently handle error - still show the class with empty quiz list
       // Don't show error toast to avoid annoying users
       setSelectedClass({
@@ -600,7 +587,9 @@ export default function StudentClasses() {
                                 : null;
                               const isExpired =
                                 expiredDate &&
-                                expiredDate.getTime() <= Date.now();
+                                expiredDate.getTime() <= Date.now()
+                                  ? true
+                                  : false;
 
                               const attemptStats = quiz.qgId
                                 ? quizAttempts[quiz.qgId]
@@ -652,8 +641,12 @@ export default function StudentClasses() {
                                           </div>
                                           <Button
                                             size="sm"
-                                            onClick={() => handleStartQuiz(quiz)}
-                                            disabled={isOutOfAttempts || isExpired}
+                                            onClick={() =>
+                                              handleStartQuiz(quiz)
+                                            }
+                                            disabled={
+                                              isOutOfAttempts || isExpired
+                                            }
                                             className={
                                               isOutOfAttempts || isExpired
                                                 ? "bg-secondary-200 text-secondary-500 cursor-not-allowed"

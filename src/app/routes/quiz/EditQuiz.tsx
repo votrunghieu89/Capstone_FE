@@ -254,10 +254,6 @@ export default function EditQuiz() {
             apiClient.get(`Quiz/getDetailOfATeacherQuiz/${quizId}`) as any,
           ]);
 
-        console.log("📡 quizResponse", quizResponse);
-        console.log("📚 topicsResponse =", topicsResponse);
-        console.log("🗂️ foldersResponse =", foldersResponse);
-
         const rawTopics = topicsResponse.data || topicsResponse;
         if (isMounted) {
           setTopics(
@@ -292,7 +288,6 @@ export default function EditQuiz() {
         const realQuizData = quizResponse as QuizDetailResponse;
         if (!realQuizData || !realQuizData.questions) {
           // Thay 'quiz' bằng thuộc tính chứa dữ liệu chi tiết, ở đây là kiểm tra 'realQuizData' và mảng 'Questions'
-          console.error("Quiz không tồn tại hoặc dữ liệu lỗi:", realQuizData);
           if (isMounted) {
             setIsLoading(false);
           }
@@ -363,7 +358,6 @@ export default function EditQuiz() {
           }
         }
       } catch (error) {
-        console.error("Error loading quiz:", error);
         if (isMounted) {
           alert(
             "Không thể tải dữ liệu quiz. Vui lòng kiểm tra API getQuizDetail."
@@ -449,8 +443,6 @@ export default function EditQuiz() {
   };
 
   const onSubmit = async (data: QuizForm) => {
-    console.log("🎯 onSubmit được gọi với data:", data);
-    console.log("🎯 quizId:", quizId);
 
     if (!quizId) {
       alert("Không tìm thấy Quiz ID!");
@@ -459,11 +451,6 @@ export default function EditQuiz() {
 
     try {
       setIsSaving(true);
-
-      console.log("🔍 Debug onSubmit:");
-      console.log("  - data.avatarUrl:", data.avatarUrl);
-      console.log("  - thumbnailFile:", thumbnailFile);
-      console.log("  - thumbnailPreview:", thumbnailPreview);
 
       let finalAvatarUrl = data.avatarUrl || "";
 
@@ -474,7 +461,6 @@ export default function EditQuiz() {
       if (thumbnailFile) {
         // Nếu có ảnh mới, gửi file
         formData.append("AvatarURL", thumbnailFile);
-        console.log("📤 Gửi ảnh mới lên BE");
       } else {
         // Nếu không có ảnh mới, gửi URL hiện tại (nếu có) hoặc empty string
         let avatarUrlToSend = finalAvatarUrl || "";
@@ -483,10 +469,6 @@ export default function EditQuiz() {
           avatarUrlToSend = `QuizImage/${avatarUrlToSend}`;
         }
         formData.append("AvatarURL", avatarUrlToSend);
-        console.log(
-          "📤 Gửi URL ảnh hiện tại lên BE (hoặc empty):",
-          avatarUrlToSend || "(empty)"
-        );
       }
 
       // Luôn gọi API updateImage để lưu thumbnail
@@ -513,17 +495,8 @@ export default function EditQuiz() {
         if (responseUrl) {
           finalAvatarUrl = responseUrl;
         }
-
-        console.log(
-          "✅ Update image thành công, response từ BE:",
-          finalAvatarUrl || "(giữ nguyên ảnh cũ)"
-        );
       } catch (imageError: any) {
         // Nếu API updateImage lỗi, log nhưng vẫn tiếp tục với updateQuiz
-        console.warn(
-          "⚠️ Lỗi khi update image, tiếp tục với updateQuiz:",
-          imageError
-        );
         // Giữ nguyên finalAvatarUrl hiện tại
       }
 
@@ -547,9 +520,6 @@ export default function EditQuiz() {
 
           // Tạo object cho question, chỉ thêm QuestionId nếu có (không gửi null)
           const mappedQuestionType = mapQuestionTypeToPayload(q.questionType); // MCQ hoặc TF
-          console.log(
-            `🔄 QuestionType: ${q.questionType} -> ${mappedQuestionType}`
-          );
 
           const questionPayload: any = {
             QuestionType: mappedQuestionType,
@@ -589,23 +559,8 @@ export default function EditQuiz() {
         }),
       };
 
-      console.log("📤 Update payload:", updatePayload);
-      console.log(
-        "📤 Questions with IDs:",
-        data.questions.map((q: any) => ({
-          id: q.id,
-          content: q.content.substring(0, 20),
-          options: q.options.map((o: any) => ({
-            id: o.id,
-            content: o.content.substring(0, 15),
-          })),
-        }))
-      );
-
       // 3. Gọi API updateQuiz
       await apiClient.put("/Quiz/updateQuiz", updatePayload);
-
-      console.log("✅ Update quiz thành công");
       alert("Cập nhật quiz thành công!");
 
       // Trở về trang thư mục, truyền folderId để tự động mở folder đó
@@ -616,7 +571,6 @@ export default function EditQuiz() {
         },
       });
     } catch (error: any) {
-      console.error("❌ Error updating quiz:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.response?.data ||
@@ -673,10 +627,6 @@ export default function EditQuiz() {
         <form
           onSubmit={handleSubmit(
             async (data) => {
-              console.log("🚀 Form submit triggered!");
-              console.log("📝 Form data:", data);
-              console.log("📝 Questions state:", questions);
-              console.log("❌ Form errors:", errors);
 
               // Đảm bảo questions được sync từ state
               if (questions.length === 0) {
@@ -688,13 +638,11 @@ export default function EditQuiz() {
               try {
                 await onSubmit({ ...data, questions });
               } catch (error) {
-                console.error("Error in form submit:", error);
                 // Error đã được handle trong onSubmit
               }
             },
             (errors) => {
               // Callback khi validation fail
-              console.error("⚠️ Form validation failed:", errors);
               const errorMessages = Object.entries(errors)
                 .map(([key, value]) => {
                   if (value?.message) return `${key}: ${value.message}`;

@@ -7,7 +7,6 @@ import { storage } from "../../../libs/storage";
 import { TeacherReportCard } from "../../../components/common/TeacherReportCard"; // 💡 IMPORT CARD MỚI
 import { useGetTeacherReports, TeacherQuizReportFlat } from "../../../libs/api/teacherReportApi"; 
 
-
 export default function TeacherHistory() {
     const navigate = useNavigate();
     // Giữ nguyên layout lọc
@@ -73,7 +72,6 @@ export default function TeacherHistory() {
           Quiz Offline
         </Button>
             </div>
-
 
             {/* Loading State */}
             {isLoading && (

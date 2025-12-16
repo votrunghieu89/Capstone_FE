@@ -200,19 +200,7 @@ export const adminApi = {
       );
       return response;
     } catch (error: any) {
-      console.error("Error fetching audit logs:", error);
       // Nếu BE lỗi hoặc thiếu, chỉ log và trả về mảng rỗng
-      if (error.response) {
-        console.error(
-          "BE Response Error:",
-          error.response.status,
-          error.response.data
-        );
-      } else if (error.code === "ERR_NETWORK") {
-        console.error(
-          "BE Network Error: Backend có thể không chạy hoặc endpoint /api/Audit/audit-logs không tồn tại"
-        );
-      }
       return [];
     }
   },
@@ -269,7 +257,6 @@ export const adminApi = {
       if (error.response?.status === 404) {
         return null;
       }
-      console.error("Error searching account by email:", error);
       throw error;
     }
   },

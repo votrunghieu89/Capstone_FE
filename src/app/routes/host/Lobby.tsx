@@ -136,7 +136,6 @@ export default function HostLobby() {
       setQuizTitle(detail.title);
       setTotalQuestions(detail.totalQuestions ?? detail?.totalQuestions ?? 0);
     } catch (error) {
-      console.error("Không thể tải thông tin quiz", error);
       toast.error("Không thể tải thông tin quiz cho phòng live");
     }
   };
@@ -247,11 +246,9 @@ export default function HostLobby() {
           activeConnection = trial;
           connectionRef.current = trial;
           setSharedQuizHubConnection(trial);
-          console.info("[SignalR] QuizHub connected via", base);
           break;
         } catch (error) {
           lastError = error;
-          console.warn("[SignalR] QuizHub connect failed via", base, error);
           detachHandlers(trial);
           await trial.stop().catch(() => undefined);
         }
@@ -259,7 +256,6 @@ export default function HostLobby() {
 
       if (!activeConnection) {
         if (!isMounted) return;
-        console.error("[SignalR] QuizHub connection failed", lastError);
         setStatusMessage("Không thể kết nối realtime. Kiểm tra Backend/HTTPS");
         toast.error("Không thể kết nối realtime. Kiểm tra Backend/HTTPS");
         setIsConnecting(false);
@@ -325,7 +321,6 @@ export default function HostLobby() {
           setStatusMessage("Đang chờ giáo viên bắt đầu...");
         }
       } catch (error: any) {
-        console.error("Không thể khởi tạo phòng/tham gia", error);
         toast.error(
           error?.message ||
             "Không thể khởi tạo/ tham gia phòng. Kiểm tra Backend."
@@ -380,7 +375,6 @@ export default function HostLobby() {
     try {
       await onlineQuizService.cacheQuizQuestions(quizId);
     } catch (error) {
-      console.warn("Cache quiz thất bại, tiếp tục sử dụng dữ liệu cũ", error);
     }
     try {
       preserveConnectionRef.current = true;
@@ -396,7 +390,6 @@ export default function HostLobby() {
         });
       }
     } catch (error) {
-      console.error("Không thể bắt đầu game", error);
       toast.error("Không thể bắt đầu quiz. Vui lòng thử lại");
     }
   };
@@ -434,7 +427,6 @@ export default function HostLobby() {
             );
           }
         } catch (error) {
-          console.warn("Không thể thông báo hub khi thoát phòng:", error);
         }
       })();
     }

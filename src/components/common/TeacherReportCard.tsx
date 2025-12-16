@@ -20,8 +20,6 @@ export const TeacherReportCard: React.FC<TeacherReportCardProps> = ({ report, on
         return new Date(dateStr).toLocaleString("vi-VN");
     };
 
-
-
     const getStatusColor = (status: string) => {
         switch (status?.toLowerCase()) {
             case "pending":

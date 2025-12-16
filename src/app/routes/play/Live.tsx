@@ -816,7 +816,6 @@ function OnlineLiveMode() {
         setTimeLeft(data[0].time);
       })
       .catch((err) => {
-        console.error(err);
         setError("Không thể tải câu hỏi quiz.");
       })
       .finally(() => mounted && setLoading(false));
@@ -941,7 +940,6 @@ function OnlineLiveMode() {
       .invoke("StudentComplete", context.roomCode, context.studentId)
       .catch((err) => {
         completionRequestedRef.current = false;
-        console.error(err);
         toast.error("Không thể gửi yêu cầu hoàn thành. Thử lại sau.");
       });
   }, [waitingSummary, context]);
@@ -1059,7 +1057,6 @@ function OnlineLiveMode() {
         },
       }));
     } catch (err) {
-      console.error(err);
       toast.error("Không gửi được đáp án, vui lòng thử lại.");
       setAnswerLocked(false);
       return;

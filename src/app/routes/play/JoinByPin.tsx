@@ -19,7 +19,6 @@ export default function JoinByPin() {
     setIsLoading(true);
     try {
       // TODO: Call join session API
-      console.log("Joining session:", { pinCode, nickname });
 
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -29,7 +28,6 @@ export default function JoinByPin() {
         state: { from: "/play/join", nickname: nickname.trim() },
       });
     } catch (error) {
-      console.error("Join session error:", error);
     } finally {
       setIsLoading(false);
     }

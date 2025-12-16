@@ -130,6 +130,3 @@ class OfflineQuizService {
 
 export const offlineQuizService = new OfflineQuizService();
 
-
-
-

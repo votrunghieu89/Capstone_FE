@@ -129,7 +129,6 @@ export default function HostLive() {
       setReportStatus("Đã tổng kết và lưu báo cáo thành công.");
       toast.success("Đã tổng kết và lưu kết quả.");
     } catch (err) {
-      console.error(err);
       setReportStatus("Không thể tổng kết. Vui lòng thử lại.");
       toast.error("Không thể tổng kết. Vui lòng thử lại.");
     } finally {

@@ -40,9 +40,7 @@ export async function handleGoogleAuth(
       fullName = profileResponse.profile.fullName;
       avatarURL = profileResponse.profile.avatarURL || null;
     }
-  } catch (profileError) {
-    console.warn("Could not fetch profile, using email name:", profileError);
-  }
+  } catch (profileError) {}
 
   // Create user object
   const user = {

@@ -12,8 +12,6 @@ class TokenRefreshService {
     // Clear timer cũ nếu có
     this.stop();
 
-    console.log("🔄 Token auto-refresh service started (every 4m30s)");
-
     // Refresh ngay lập tức nếu đã đăng nhập
     this.refreshTokenNow();
 
@@ -30,7 +28,6 @@ class TokenRefreshService {
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
-      console.log("⏹️ Token auto-refresh service stopped");
     }
   }
 
@@ -43,17 +40,13 @@ class TokenRefreshService {
       const user = storage.getUser();
 
       if (!refreshToken || !user) {
-        console.log("⏭️ Skip refresh: No refresh token or user found");
         return;
       }
 
       const accountId = parseInt(user.id || user.accountId);
       if (!accountId) {
-        console.error("❌ Invalid accountId for refresh");
         return;
       }
-
-      console.log("🔄 Refreshing access token...");
 
       // Gọi API refresh token
       const response = await apiClient.post<{ accessToken: string }>(
@@ -68,14 +61,9 @@ class TokenRefreshService {
 
       // Lưu token mới
       storage.setToken(accessToken);
-
-      console.log("✅ Access token refreshed successfully");
     } catch (error: any) {
-      console.error("❌ Failed to refresh token:", error);
-
       // Nếu refresh token hết hạn hoặc không hợp lệ, clear storage
       if (error?.response?.status === 401 || error?.response?.status === 400) {
-        console.log("🚪 Refresh token expired, logging out...");
         storage.clearAuth();
 
         // Redirect về login nếu không phải trang public
