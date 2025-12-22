@@ -511,6 +511,7 @@ export default function CreateQuizAI() {
                                                         </svg>
 
                                                         <p className="mb-2 text-sm text-secondary-500">Choose File</p>
+                                                        <p className="mb-2 text-sm text-secondary-400">(Đối với file câu hỏi thì phải có dấu '*' trước mỗi đáp án đúng)</p>
                                                     </>
                                                 )}
 

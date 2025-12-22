@@ -90,13 +90,12 @@ export const HistoryResultCard: React.FC<HistoryResultCardProps> = ({
 
                 <p className="mb-3">{secondaryInfo}</p>
 
-                <div className="grid grid-cols-2 gap-y-2 text-sm text-secondary-600 mb-4">
+                <div className="flex justify-between items-center text-sm text-secondary-600 mb-4">
                     <div className="flex items-center">
                         <BookOpen className="w-4 h-4 mr-1" />
                         <span>{totalQuestionsDisplay}</span>
                     </div>
-                    
-                    <div className="flex items-center">
+                    <div className="flex items-center whitespace-nowrap">
                         <Clock className="w-4 h-4 mr-1" />
                         <span>Hoàn thành: {formatDateTime(result.CompletedAt)}</span>
                     </div>

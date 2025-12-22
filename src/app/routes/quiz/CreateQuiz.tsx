@@ -197,12 +197,6 @@ export default function CreateQuiz() {
           (topicsResponse as any).data || (topicsResponse as any);
         const rawFoldersData =
           (foldersResponse as any).data || (foldersResponse as any);
-
-<<<<<<< HEAD
-=======
-        // ✅ Log dữ liệu thô
-
->>>>>>> origin/Sang2
         // 1. Xử lý Topics
         setTopics(
           // Ép kiểu array an toàn trước khi map

@@ -113,8 +113,7 @@ export default function Login() {
 
       // Initialize with callback
       google.accounts.id.initialize({
-        client_id:
-          import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID",
         callback: handleGoogleResponse,
       });
 
